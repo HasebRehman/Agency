@@ -8,160 +8,257 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-/**
- * WhiteTransition
- *
- * Architecture:
- * ─────────────────────────────────────────────────────────────────
- * The outer section (#key-facts-section) is PINNED for 250vh of
- * scroll distance. This gives us a long, controlled scrub window:
- *
- *  0%  – 12%   Resistance zone: nothing moves. The page feels
- *               like it has tension before the reveal starts.
- *
- *  12% – 88%   5 white bands scaleY(0 → 1) from the bottom,
- *               each starting ~14% after the previous, so the
- *               cascade is visible and appreciable.
- *
- *  88% – 100%  Section 3 content fades in (opacity + translateY).
- * ─────────────────────────────────────────────────────────────────
- */
 export default function WhiteTransition() {
-  const sectionRef    = useRef<HTMLDivElement>(null);
-  const bandsRef      = useRef<HTMLDivElement>(null);
-  const band1Ref      = useRef<HTMLDivElement>(null);
-  const band2Ref      = useRef<HTMLDivElement>(null);
-  const band3Ref      = useRef<HTMLDivElement>(null);
-  const band4Ref      = useRef<HTMLDivElement>(null);
-  const band5Ref      = useRef<HTMLDivElement>(null);
-  const contentRef    = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const bar1Ref = useRef<HTMLDivElement>(null);
+  const bar2Ref = useRef<HTMLDivElement>(null);
+  const bar3Ref = useRef<HTMLDivElement>(null);
+  const bar4Ref = useRef<HTMLDivElement>(null);
+  const bar5Ref = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const section = sectionRef.current;
-    const bands   = [band1Ref, band2Ref, band3Ref, band4Ref, band5Ref].map(r => r.current);
+    const container = containerRef.current;
+    const bar1 = bar1Ref.current;
+    const bar2 = bar2Ref.current;
+    const bar3 = bar3Ref.current;
+    const bar4 = bar4Ref.current;
+    const bar5 = bar5Ref.current;
     const content = contentRef.current;
 
-    if (!section || bands.some(b => !b) || !content) return;
+    if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5 || !content) return;
 
-    // ── Initial states ─────────────────────────────────────────
-    // All bands collapsed at scaleY(0), anchored at their bottom edge
-    gsap.set(bands, { scaleY: 0, transformOrigin: "bottom center" });
-    gsap.set(content, { opacity: 0, y: 30 });
-
-    // ── Master timeline ────────────────────────────────────────
-    // scrub: 1.4 gives a slightly weighted / buttery follow
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: section,
-        start: "top top",          // pin starts the moment section hits viewport top
-        end: "+=250%",             // 250vh of scroll real estate for the whole animation
-        scrub: 1.4,
-        pin: true,
-        anticipatePin: 1,          // avoids the brief jump when pin activates
-        pinSpacing: true,
-      },
-    });
-
-    /**
-     * Timeline positions (0 → 1):
-     *
-     *  0.00 ── dead silence (resistance) ──────────────────────
-     *  0.12 ── band 1 starts rising ───────────────────────────
-     *  0.26 ── band 2 starts rising ───────────────────────────
-     *  0.40 ── band 3 starts rising ───────────────────────────
-     *  0.54 ── band 4 starts rising ───────────────────────────
-     *  0.68 ── band 5 starts rising ───────────────────────────
-     *  0.86 ── all bands fully expanded ───────────────────────
-     *  0.88 ── content fades in ────────────────────────────────
-     *  1.00 ── end ─────────────────────────────────────────────
-     *
-     * Each band expand-duration = 0.22 (in timeline units).
-     * Bands overlap slightly so the wipe feels continuous.
-     */
-
-    const BAND_DURATION = 0.22;
-    const BAND_STEP     = 0.14; // gap between band starts
-    const START_OFFSET  = 0.12; // resistance dead-zone
-
-    bands.forEach((band, i) => {
-      tl.to(band, {
-        scaleY: 1,
-        duration: BAND_DURATION,
-        ease: "power2.inOut",
-      }, START_OFFSET + i * BAND_STEP);
-    });
-
-    // Content reveal — after last band has settled
-    tl.to(content, {
-      opacity: 1,
-      y: 0,
-      duration: 0.14,
-      ease: "power2.out",
-    }, 0.88);
-
-    return () => {
-      ScrollTrigger.getAll().forEach(st => {
-        if (st.trigger === section) st.kill();
+    const ctx = gsap.context(() => {
+      // Set initial scale to 0 (completely hidden) and rotateX to 0 with perspective
+      gsap.set([bar1, bar2, bar3, bar4, bar5], { 
+        scaleY: 0,
+        rotateX: 0,
+        transformPerspective: 800,
+        transformStyle: "preserve-3d"
       });
-      tl.kill();
-    };
+      gsap.set(content, { opacity: 0, y: 30, pointerEvents: "none" });
+
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: container,
+          start: "top top",      // Pin when Section 3 reaches the top of the screen
+          end: "+=150%",         // Scroll space for resistance & animation duration (cinematic hold)
+          pin: true,             // Hold the page in place to create the tension
+          scrub: true,           // Sync progress exactly to the scrollbar
+          anticipatePin: 1,
+        }
+      });
+
+      // --- BAR 1 (BOTTOM-MOST, progress 0.15 to 0.40) ---
+      tl.to(bar1, {
+        scaleY: 0.005,
+        rotateX: 0,
+        duration: 0.05,
+        ease: "none",
+      }, 0.15);
+
+      tl.to(bar1, {
+        scaleY: 0.5,
+        rotateX: -60,
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.2);
+
+      tl.to(bar1, {
+        scaleY: 1.05,
+        rotateX: 0,
+        duration: 0.1,
+        ease: "power2.inOut",
+      }, 0.3);
+
+      // --- BAR 2 (progress 0.29 to 0.54) ---
+      tl.to(bar2, {
+        scaleY: 0.005,
+        rotateX: 0,
+        duration: 0.05,
+        ease: "none",
+      }, 0.29);
+
+      tl.to(bar2, {
+        scaleY: 0.5,
+        rotateX: -60,
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.34);
+
+      tl.to(bar2, {
+        scaleY: 1.05,
+        rotateX: 0,
+        duration: 0.1,
+        ease: "power2.inOut",
+      }, 0.44);
+
+      // --- BAR 3 (progress 0.43 to 0.68) ---
+      tl.to(bar3, {
+        scaleY: 0.005,
+        rotateX: 0,
+        duration: 0.05,
+        ease: "none",
+      }, 0.43);
+
+      tl.to(bar3, {
+        scaleY: 0.5,
+        rotateX: -60,
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.48);
+
+      tl.to(bar3, {
+        scaleY: 1.05,
+        rotateX: 0,
+        duration: 0.1,
+        ease: "power2.inOut",
+      }, 0.58);
+
+      // --- BAR 4 (progress 0.57 to 0.82) ---
+      tl.to(bar4, {
+        scaleY: 0.005,
+        rotateX: 0,
+        duration: 0.05,
+        ease: "none",
+      }, 0.57);
+
+      tl.to(bar4, {
+        scaleY: 0.5,
+        rotateX: -60,
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.62);
+
+      tl.to(bar4, {
+        scaleY: 1.05,
+        rotateX: 0,
+        duration: 0.1,
+        ease: "power2.inOut",
+      }, 0.72);
+
+      // --- BAR 5 (TOP-MOST, progress 0.71 to 0.96) ---
+      tl.to(bar5, {
+        scaleY: 0.005,
+        rotateX: 0,
+        duration: 0.05,
+        ease: "none",
+      }, 0.71);
+
+      tl.to(bar5, {
+        scaleY: 0.5,
+        rotateX: -60,
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.76);
+
+      tl.to(bar5, {
+        scaleY: 1.05,
+        rotateX: 0,
+        duration: 0.1,
+        ease: "power2.inOut",
+      }, 0.86);
+
+      // --- CONTENT ---
+      tl.to(content, {
+        opacity: 1,
+        y: 0,
+        pointerEvents: "auto",
+        duration: 0.1,
+        ease: "power2.out",
+      }, 0.95);
+    });
+
+    return () => ctx.revert();
   }, []);
 
-  /* ── Band heights ────────────────────────────────────────────
-   * 5 equal bands × 22vh each = 110vh total.
-   * A 10vh gap between them means they're NOT contiguous in the
-   * DOM — but since each one scaleY-expands from its bottom edge,
-   * and they overlap by the time they're fully expanded, the
-   * visual result is a solid white fill.
-   *
-   * To guarantee a seamless fill we actually tile them with
-   * NO gap, using top offsets so band edges align perfectly.
-   * Each band = 24vh tall, stacked: 0, 20%, 40%, 60%, 80%
-   * (adjusted to cover 100vh when fully expanded).
-   * ─────────────────────────────────────────────────────────── */
-
-  const bandStyles: React.CSSProperties[] = [
-    { bottom:  "0",   height: "24vh" },   // 1 — lowest
-    { bottom: "20vh", height: "24vh" },   // 2
-    { bottom: "40vh", height: "24vh" },   // 3
-    { bottom: "60vh", height: "24vh" },   // 4
-    { bottom: "80vh", height: "24vh" },   // 5 — highest
-  ];
-
-  const bandRefs = [band1Ref, band2Ref, band3Ref, band4Ref, band5Ref];
-
   return (
-    <section
+    <section 
+      ref={containerRef}
       id="key-facts-section"
-      ref={sectionRef}
-      /* Black bg shows through between bands while they're still expanding */
-      className="relative w-full h-screen z-20 bg-[#05070c] overflow-hidden"
+      className="relative w-full h-screen overflow-hidden bg-transparent z-20"
     >
-      {/* ── Five cascading white bands ── */}
-      <div ref={bandsRef} className="absolute inset-0 pointer-events-none">
-        {bandStyles.map((style, i) => (
-          <div
-            key={i}
-            ref={bandRefs[i]}
-            className="absolute left-0 right-0 bg-white"
-            style={{
-              ...style,
-              willChange: "transform",
-              /* scaleY origin is set via GSAP; explicit declaration avoids
-                 any browser default overriding it during reflows */
-              transformOrigin: "bottom center",
-            }}
-          />
-        ))}
+      {/* 
+        Horizontal White Shield Bands:
+        Since container is transparent, the dark canvas / section 2 shows in the gaps.
+      */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-10"
+        style={{ perspective: "800px" }}
+      >
+        {/* Bar 5 (Top-most) */}
+        <div 
+          ref={bar5Ref}
+          className="absolute left-0 right-0 top-0 bg-white"
+          style={{ 
+            height: "20.5vh", 
+            transformOrigin: "center center",
+            willChange: "transform",
+            transformStyle: "preserve-3d"
+          }}
+        />
+
+        {/* Bar 4 */}
+        <div 
+          ref={bar4Ref}
+          className="absolute left-0 right-0 bg-white"
+          style={{ 
+            top: "20vh",
+            height: "20.5vh", 
+            transformOrigin: "center center",
+            willChange: "transform",
+            transformStyle: "preserve-3d"
+          }}
+        />
+
+        {/* Bar 3 */}
+        <div 
+          ref={bar3Ref}
+          className="absolute left-0 right-0 bg-white"
+          style={{ 
+            top: "40vh",
+            height: "20.5vh", 
+            transformOrigin: "center center",
+            willChange: "transform",
+            transformStyle: "preserve-3d"
+          }}
+        />
+
+        {/* Bar 2 */}
+        <div 
+          ref={bar2Ref}
+          className="absolute left-0 right-0 bg-white"
+          style={{ 
+            top: "60vh",
+            height: "20.5vh", 
+            transformOrigin: "center center",
+            willChange: "transform",
+            transformStyle: "preserve-3d"
+          }}
+        />
+
+        {/* Bar 1 (Bottom-most) */}
+        <div 
+          ref={bar1Ref}
+          className="absolute left-0 right-0 bottom-0 bg-white"
+          style={{ 
+            height: "20.5vh", 
+            transformOrigin: "center center",
+            willChange: "transform",
+            transformStyle: "preserve-3d"
+          }}
+        />
       </div>
 
-      {/* ── Section 3 content — sits above all bands ── */}
-      <div
+      {/* 
+        Section 3 Content:
+        Fades in over the solid white viewport once the shields are fully closed.
+      */}
+      <div 
         ref={contentRef}
-        className="absolute inset-0 z-10 bg-white flex flex-col justify-center items-center text-center px-6 overflow-auto"
-        style={{ willChange: "transform, opacity" }}
+        className="absolute inset-0 bg-white flex flex-col justify-center items-center text-center px-6 z-20"
+        style={{ willChange: "opacity, transform" }}
       >
-        {/* Main heading */}
         <div className="max-w-5xl w-full flex flex-col items-center">
           <h2 className="text-5xl font-bold tracking-tight sm:text-7xl md:text-8xl text-zinc-950 mb-6 font-display">
             Key facts
@@ -169,40 +266,24 @@ export default function WhiteTransition() {
           <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-light max-w-xl mb-0">
             A snapshot of our experience and impact.
           </p>
-
+          
           {/* Premium Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-16 gap-y-12 w-full mt-24 max-w-4xl border-t border-zinc-200 pt-16">
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">
-                99%
-              </span>
-              <span className="text-[11px] font-mono tracking-[0.2em] text-zinc-400 uppercase">
-                Client Satisfaction
-              </span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full mt-24 max-w-5xl border-t border-zinc-200 pt-16">
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">99%</span>
+              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Client Satisfaction</span>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">
-                120+
-              </span>
-              <span className="text-[11px] font-mono tracking-[0.2em] text-zinc-400 uppercase">
-                Products Shipped
-              </span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">120+</span>
+              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Products Shipped</span>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">
-                10x
-              </span>
-              <span className="text-[11px] font-mono tracking-[0.2em] text-zinc-400 uppercase">
-                Deployment Speed
-              </span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">10x</span>
+              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Deployment Speed</span>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">
-                24/7
-              </span>
-              <span className="text-[11px] font-mono tracking-[0.2em] text-zinc-400 uppercase">
-                Systems Monitoring
-              </span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">24/7</span>
+              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Systems Monitoring</span>
             </div>
           </div>
         </div>

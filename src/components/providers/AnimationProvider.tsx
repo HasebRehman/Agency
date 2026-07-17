@@ -56,9 +56,16 @@ export default function AnimationProvider({
     // 4. Force ScrollTrigger refresh on mount
     ScrollTrigger.refresh();
 
+    // 5. Synchronize ScrollTrigger refresh events with Lenis resize
+    const handleRefresh = () => {
+      lenis.resize();
+    };
+    ScrollTrigger.addEventListener("refresh", handleRefresh);
+
     // Clean up
     return () => {
       gsap.ticker.remove(updateTicker);
+      ScrollTrigger.removeEventListener("refresh", handleRefresh);
       lenis.destroy();
       lenisRef.current = null;
     };

@@ -283,91 +283,90 @@ export default function CinematicHero() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Pin Section 1 (Hero) for 100vh of scroll distance
-    const pinTrigger = ScrollTrigger.create({
-      trigger: "#hero-section",
-      pin: true,
-      start: "top top",
-      end: "+=100%",
-      pinSpacing: true,
-    });
+    const ctx = gsap.context(() => {
+      // Pin Section 1 (Hero) for 100vh of scroll distance
+      ScrollTrigger.create({
+        trigger: "#hero-section",
+        pin: true,
+        start: "top top",
+        end: "+=100%",
+        pinSpacing: true,
+      });
 
-    // Map scroll progress of container (Hero pinned + About) to frame indexes
-    const animTrigger = ScrollTrigger.create({
-      trigger: "#hero-scroll-container",
-      start: "top top",
-      end: "bottom bottom",
-      scrub: true,
-      onUpdate: (self) => {
-        const p = self.progress;
-        // Map 0-1 progress to 1-TOTAL_FRAMES
-        const targetFrame = Math.round(1 + p * (TOTAL_FRAMES - 1));
-        targetFrameIndexRef.current = targetFrame;
-        
-        prioritizeFrames(targetFrame);
-      },
-    });
-
-    // Fade out hero content during the first half of pinning
-    const headerAnim = gsap.to("#hero-content", {
-      scrollTrigger: {
+      // Map scroll progress of container (Hero pinned + About) to frame indexes
+      ScrollTrigger.create({
         trigger: "#hero-scroll-container",
         start: "top top",
-        end: "40% top",
+        end: "bottom bottom",
         scrub: true,
-      },
-      opacity: 0,
-      y: -60,
-    });
+        onUpdate: (self) => {
+          const p = self.progress;
+          // Map 0-1 progress to 1-TOTAL_FRAMES
+          const targetFrame = Math.round(1 + p * (TOTAL_FRAMES - 1));
+          targetFrameIndexRef.current = targetFrame;
+          
+          prioritizeFrames(targetFrame);
+        },
+      });
 
-    // Fade out scroll indicator early
-    const indicatorAnim = gsap.to("#hero-scroll-indicator", {
-      scrollTrigger: {
-        trigger: "#hero-scroll-container",
-        start: "top top",
-        end: "15% top",
-        scrub: true,
-      },
-      opacity: 0,
-      y: 30,
-    });
-
-    // Premium card expansion and reveal for Section 3 white panel
-    const whitePanelAnim = gsap.fromTo("#white-panel",
-      {
-        y: 160,
-        scale: 0.98,
-        borderTopLeftRadius: "40px",
-        borderTopRightRadius: "40px",
-        opacity: 0.9,
-      },
-      {
-        y: 0,
-        scale: 1.0,
-        borderTopLeftRadius: "0px",
-        borderTopRightRadius: "0px",
-        opacity: 1.0,
-        ease: "power1.out",
+      // Fade out hero content during the first half of pinning
+      gsap.to("#hero-content", {
         scrollTrigger: {
-          trigger: "#key-facts-section",
-          start: "top bottom",
-          end: "top 10%",
+          trigger: "#hero-scroll-container",
+          start: "top top",
+          end: "40% top",
           scrub: true,
+        },
+        opacity: 0,
+        y: -60,
+      });
+
+      // Fade out scroll indicator early
+      gsap.to("#hero-scroll-indicator", {
+        scrollTrigger: {
+          trigger: "#hero-scroll-container",
+          start: "top top",
+          end: "15% top",
+          scrub: true,
+        },
+        opacity: 0,
+        y: 30,
+      });
+
+      // Premium card expansion and reveal for Section 3 white panel
+      gsap.fromTo("#white-panel",
+        {
+          y: 160,
+          scale: 0.98,
+          borderTopLeftRadius: "40px",
+          borderTopRightRadius: "40px",
+          opacity: 0.9,
+        },
+        {
+          y: 0,
+          scale: 1.0,
+          borderTopLeftRadius: "0px",
+          borderTopRightRadius: "0px",
+          opacity: 1.0,
+          ease: "power1.out",
+          scrollTrigger: {
+            trigger: "#key-facts-section",
+            start: "top bottom",
+            end: "top 10%",
+            scrub: true,
+          }
         }
-      }
-    );
+      );
+    });
 
     // Refresh ScrollTrigger calculations after pinning is initialized
-    setTimeout(() => {
+    const refreshTimer = setTimeout(() => {
       ScrollTrigger.refresh();
     }, 150);
 
     return () => {
-      pinTrigger.kill();
-      animTrigger.kill();
-      headerAnim.kill();
-      indicatorAnim.kill();
-      whitePanelAnim.kill();
+      ctx.revert();
+      clearTimeout(refreshTimer);
     };
   }, [isLoaded]);
 
@@ -417,8 +416,6 @@ export default function CinematicHero() {
       {/* Main Canvas Container */}
       <div className="fixed inset-0 w-screen h-screen z-0 bg-black overflow-hidden pointer-events-none">
         <canvas ref={canvasRef} className="w-full h-full block" />
-        {/* Light black overlay for text readability */}
-        <div className="absolute inset-0 bg-black/40 pointer-events-none" />
       </div>
     </>
   );
