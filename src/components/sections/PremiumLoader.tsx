@@ -169,15 +169,15 @@ export default function PremiumLoader({
         {/* Agency Icon (Centered, solid from the start, original colors) */}
         <div
           id="loader-icon-container"
-          className="relative flex items-center justify-center mb-6 mt-[-6px] w-[64px] h-[64px] overflow-hidden"
+          className="relative flex items-center justify-center mb-4 mt-[-10px] w-[96px] h-[96px] overflow-hidden"
         >
           <Image
             src={loaderIcon}
             alt="CureLogics Loader Icon"
-            width={64}
-            height={64}
+            width={96}
+            height={96}
             priority
-            className="object-contain max-h-[64px] w-auto select-none pointer-events-none"
+            className="object-contain max-h-[96px] w-auto select-none pointer-events-none"
           />
         </div>
 
