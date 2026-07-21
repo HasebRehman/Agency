@@ -108,9 +108,10 @@ export default function CinematicHero() {
       const frameToLoad = remaining[index];
       index++;
       
-      const scheduler = typeof window !== "undefined" && "requestIdleCallback" in window
-        ? (window as any).requestIdleCallback
-        : (cb: any) => setTimeout(cb, 50);
+      const scheduler: (cb: () => void) => void =
+        typeof window !== "undefined" && "requestIdleCallback" in window
+          ? (cb) => window.requestIdleCallback(cb)
+          : (cb) => setTimeout(cb, 50);
         
       scheduler(() => {
         loadFrame(frameToLoad).then(() => {

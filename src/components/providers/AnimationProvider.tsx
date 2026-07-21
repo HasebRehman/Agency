@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, startTransition } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
@@ -22,6 +22,8 @@ export default function AnimationProvider({
   children: React.ReactNode;
 }) {
   const lenisRef = useRef<Lenis | null>(null);
+  // State to store Lenis instance so context value updates properly on render
+  const [lenisInstance, setLenisInstance] = useState<Lenis | null>(null);
 
   useEffect(() => {
     // 1. Initialize Lenis
@@ -36,6 +38,9 @@ export default function AnimationProvider({
     });
 
     lenisRef.current = lenis;
+    startTransition(() => {
+      setLenisInstance(lenis);
+    });
 
     // 2. Connect Lenis scroll events to GSAP ScrollTrigger
     lenis.on("scroll", () => {
@@ -68,11 +73,14 @@ export default function AnimationProvider({
       ScrollTrigger.removeEventListener("refresh", handleRefresh);
       lenis.destroy();
       lenisRef.current = null;
+      startTransition(() => {
+        setLenisInstance(null);
+      });
     };
   }, []);
 
   return (
-    <AnimationContext.Provider value={{ lenis: lenisRef.current }}>
+    <AnimationContext.Provider value={{ lenis: lenisInstance }}>
       {children}
     </AnimationContext.Provider>
   );

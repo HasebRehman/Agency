@@ -42,7 +42,7 @@ export default function WhiteTransition() {
         scrollTrigger: {
           trigger: container,
           start: "top top",      // Pin when Section 3 reaches the top of the screen
-          end: "+=150%",         // Scroll space for resistance & animation duration (cinematic hold)
+          end: "+=100%",         // Scroll space for resistance & animation duration (cinematic hold)
           pin: true,             // Hold the page in place to create the tension
           scrub: true,           // Sync progress exactly to the scrollbar
           anticipatePin: 1,

@@ -1,51 +1,53 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, startTransition, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import logoImg from "@/logo/logo-for-dark-bg.png";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
-  const [showNav, setShowNav] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Monitor document.body class to synchronize with GSAP/JS entry sequence
+  // Subscribe to document.body class changes using React's built-in external store hook
+  // This avoids calling setState inside a MutationObserver callback (lint error fix)
+  const showNav = useSyncExternalStore(
+    (onStoreChange) => {
+      const observer = new MutationObserver(onStoreChange);
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+      return () => observer.disconnect();
+    },
+    () => document.body.classList.contains("show-nav"),
+    // Server-side snapshot — no document available, default to false
+    () => false,
+  );
+
+  // Fallback: show nav after a short delay even if body class isn't set yet
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      if (document.body.classList.contains("show-nav")) {
-        setShowNav(true);
-      }
-    });
-
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    // Check initial state
-    if (document.body.classList.contains("show-nav")) {
-      setShowNav(true);
+    if (!document.body.classList.contains("show-nav")) {
+      const fallback = setTimeout(() => {
+        document.body.classList.add("show-nav");
+      }, 2000);
+      return () => clearTimeout(fallback);
     }
-
-    // Fallback: show nav after a short delay even if body class isn't set yet
-    const fallback = setTimeout(() => setShowNav(true), 2000);
-
-    return () => {
-      observer.disconnect();
-      clearTimeout(fallback);
-    };
   }, []);
 
   // Trigger capsule expansion after header slides in from top
   useEffect(() => {
     if (showNav) {
       const timer = setTimeout(() => {
-        setIsExpanded(true);
+        startTransition(() => {
+          setIsExpanded(true);
+        });
       }, 700);
       return () => clearTimeout(timer);
     } else {
-      setIsExpanded(false);
+      startTransition(() => {
+        setIsExpanded(false);
+      });
     }
   }, [showNav]);
 

@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 
 export function useDeviceDetect() {
   const [disable3D, setDisable3D] = useState(true); // Default to true for SSR safety
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-    
+    startTransition(() => {
+      setIsMounted(true);
+    });
+
     const checkSpecs = () => {
       // 1. Check for reduced motion preference
       const prefersReducedMotion = window.matchMedia(
@@ -25,7 +27,9 @@ export function useDeviceDetect() {
         navigator.hardwareConcurrency < 4;
 
       // Disable 3D if any condition is met
-      setDisable3D(prefersReducedMotion || isMobile || isLowPower);
+      startTransition(() => {
+        setDisable3D(prefersReducedMotion || isMobile || isLowPower);
+      });
     };
 
     checkSpecs();
