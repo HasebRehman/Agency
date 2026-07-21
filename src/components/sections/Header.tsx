@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import logoImg from "@/logo/logo-for-dark-bg.png";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,19 +52,14 @@ export default function Header() {
       }`}
     >
       {/* Logo */}
-      <a href="#" className="logo flex items-center gap-2.5 text-white font-sans font-bold text-xl tracking-tight">
-        <span className="logo-mark w-7 h-7 rounded-lg bg-gradient-to-br from-[#35d0ff] to-[#8b7bff] flex items-center justify-center shadow-[0_0_24px_rgba(53,208,255,0.35)]">
-          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-            <path
-              d="M4 12L10 18L20 6"
-              stroke="#031018"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-        CureLogics
+      <a href="#" className="logo flex items-center">
+        <Image
+          src={logoImg}
+          alt="CureLogics Logo"
+          height={38}
+          priority
+          className="h-[38px] w-auto object-contain"
+        />
       </a>
 
       {/* Desktop nav links container using user's nav-links class */}

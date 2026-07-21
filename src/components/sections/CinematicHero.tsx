@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import PremiumLoader from "./PremiumLoader";
 
 /* ─── Constants ─── */
 const TOTAL_FRAMES = 240;
@@ -30,6 +31,7 @@ export default function CinematicHero() {
 
   /* ─── State ─── */
   const [isLoaded, setIsLoaded] = useState(false);
+  const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
 
   /* ═══════════════════════════════════════
@@ -142,14 +144,17 @@ export default function CinematicHero() {
       setPreloadProgress(Math.round((loadedCount / totalBaseline) * 100));
       
       if (loadedCount === totalBaseline) {
-        setIsLoaded(true);
-        // Dispatch custom body class to reveal header
-        document.body.classList.add("show-nav");
+        setAssetsReady(true);
         // Start background preloading for high-framerate scroll
         startBackgroundPreload();
       }
     });
   }, []);
+
+  const handleTransitionComplete = () => {
+    setIsLoaded(true);
+    document.body.classList.add("show-nav");
+  };
 
   /* ═══════════════════════════════════════
      5. FIT IMAGE COVER MATH
@@ -376,42 +381,12 @@ export default function CinematicHero() {
   return (
     <>
       {/* Premium Loader Overlay */}
-      <div
-        className={`fixed inset-0 w-screen h-screen z-50 bg-black flex flex-col justify-center items-center transition-all duration-1000 cubic-bezier(0.16, 1, 0.3, 1) ${
-          isLoaded ? "opacity-0 pointer-events-none scale-105 blur-lg" : "opacity-100"
-        }`}
-      >
-        <div className="flex flex-col items-center gap-6 max-w-sm w-full px-8">
-          {/* Logo Mark */}
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#35d0ff] to-[#8b7bff] flex items-center justify-center shadow-[0_0_40px_rgba(53,208,255,0.45)] mb-4 animate-pulse">
-            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8">
-              <path
-                d="M4 12L10 18L20 6"
-                stroke="#031018"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          
-          <h2 className="text-2xl font-bold tracking-widest text-[#eaf1fb] font-display">
-            CURELOGICS
-          </h2>
-          
-          <div className="w-full bg-white/5 h-[2px] rounded-full overflow-hidden relative shadow-[0_0_10px_rgba(53,208,255,0.1)]">
-            <div
-              className="h-full bg-gradient-to-r from-[#35d0ff] to-[#8b7bff] transition-all duration-300 ease-out shadow-[0_0_12px_rgba(53,208,255,0.8)]"
-              style={{ width: `${preloadProgress}%` }}
-            />
-          </div>
-          
-          <div className="flex justify-between w-full text-[10px] tracking-widest text-[#8b96ac] font-mono">
-            <span>SYSTEM INITIALIZING</span>
-            <span>{preloadProgress}%</span>
-          </div>
-        </div>
-      </div>
+      {!isLoaded && (
+        <PremiumLoader
+          assetsReady={assetsReady}
+          onTransitionComplete={handleTransitionComplete}
+        />
+      )}
 
       {/* Main Canvas Container */}
       <div className="fixed inset-0 w-screen h-screen z-0 bg-black overflow-hidden pointer-events-none">
