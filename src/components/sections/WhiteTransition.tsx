@@ -256,6 +256,7 @@ export default function WhiteTransition() {
       */}
       <div 
         ref={contentRef}
+        id="key-facts-content"
         className="absolute inset-0 bg-white flex flex-col justify-center items-center text-center px-6 z-20"
         style={{ willChange: "opacity, transform" }}
       >
