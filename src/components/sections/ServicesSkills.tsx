@@ -7,12 +7,6 @@ import { useGSAP } from "@gsap/react";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// TEMP DEBUG — set to false (or delete this block) once everything works.
-if (typeof window !== "undefined") {
-  (window as any).ScrollTrigger = ScrollTrigger;
-}
-const DEBUG_MARKERS = false;
-
 type CardBase = {
   type: "heading" | "service";
   title: string;
@@ -141,9 +135,11 @@ export default function ServicesSkills() {
             end: "+=130%",
             scrub: 1,
             pin: true,
+            // Parent <main> is display:flex — GSAP auto-disables pinSpacing
+            // in flex containers, which broke this section's scroll math.
+            pinSpacing: true,
             anticipatePin: 1,
             invalidateOnRefresh: true,
-            markers: DEBUG_MARKERS,
           },
         });
 

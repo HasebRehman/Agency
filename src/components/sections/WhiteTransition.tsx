@@ -46,6 +46,10 @@ export default function WhiteTransition() {
           start: "top top",
           end: "+=100%",
           pin: true,
+          // Parent <main> is display:flex, which makes GSAP auto-disable
+          // pinSpacing — that collapses the scroll distance reserved for
+          // this pin and breaks the position math of every section below.
+          pinSpacing: true,
           scrub: true,
           anticipatePin: 1,
           invalidateOnRefresh: true,
