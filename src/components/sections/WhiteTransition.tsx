@@ -56,27 +56,33 @@ export default function WhiteTransition() {
         },
       });
 
-      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.15);
-      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.2);
-      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.3);
+      // Bars start immediately at pin start (no dead scroll) — the reveal
+      // text's last lines are still on screen when bar1 rises from bottom.
+      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.02);
+      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.07);
+      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.17);
 
-      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.29);
-      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.34);
-      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.44);
+      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.16);
+      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.21);
+      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.31);
 
-      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.43);
-      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.48);
-      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.58);
+      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.3);
+      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.35);
+      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.45);
 
-      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.57);
-      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.62);
-      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.72);
+      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.44);
+      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.49);
+      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.59);
 
-      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.71);
-      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.76);
-      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.86);
+      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.58);
+      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.63);
+      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.73);
 
-      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.95);
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.85);
+
+      // Hold the finished state for the remaining scroll distance so the
+      // key facts content stays readable before the pin releases.
+      tl.to({}, { duration: 0.15 }, 0.85);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
@@ -88,6 +94,10 @@ export default function WhiteTransition() {
       ref={containerRef}
       id="key-facts-section"
       className="relative w-full h-screen overflow-hidden bg-transparent z-20"
+      // Pull this section up so it pins while the last lines of the
+      // scroll-reveal text are still on screen — the bars then rise from
+      // the bottom over the text instead of after a blank gap.
+      style={{ marginTop: "-45vh" }}
     >
       <div className="absolute inset-0 pointer-events-none z-10" style={{ perspective: "800px" }}>
         <div
