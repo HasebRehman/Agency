@@ -1,20 +1,41 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { useScroll } from "framer-motion";
 
-// Smooth ease-out curve (pure function, no hook needed)
+// Smooth ease-out curve for interpolation
 const easeOutQuad = (t: number) => t * (2 - t);
 
 export default function ScrollRevealText() {
   const sectionRef = useRef<HTMLParagraphElement>(null);
-  const wordRefs = useRef<HTMLSpanElement[]>([]);
+  const charRefs = useRef<HTMLSpanElement[]>([]);
   const rafIdRef = useRef<number>(0);
   const lastProgressRef = useRef(-1);
 
   const text =
     "At Curelogics, we specialize in delivering cutting-edge software solutions tailored to your business needs. Our team of experts is dedicated to transforming your ideas into reality.";
-  const words = text.split(" ");
+  
+  const words = useMemo(() => text.split(" "), [text]);
+
+  // Pre-calculate characters and assign flat indices
+  const wordsAndChars = useMemo(() => {
+    let charCounter = 0;
+    return words.map((word) => {
+      const chars = word.split("").map((char) => {
+        const index = charCounter++;
+        return { char, index };
+      });
+      return { word, chars };
+    });
+  }, [words]);
+
+  const totalChars = useMemo(() => {
+    let count = 0;
+    wordsAndChars.forEach((w) => {
+      count += w.chars.length;
+    });
+    return count;
+  }, [wordsAndChars]);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -22,82 +43,82 @@ export default function ScrollRevealText() {
   });
 
   useEffect(() => {
-    const updateWords = (progress: number) => {
+    const updateChars = (progress: number) => {
       const revealStart = 0.28;
       const revealEnd = 0.95;
       const range = revealEnd - revealStart;
 
+      // Normalise relative scroll progress
       const clampedProgress = Math.max(0, Math.min(1, (progress - revealStart) / range));
 
-      for (let i = 0; i < words.length; i++) {
-        const wordEl = wordRefs.current[i];
-        if (!wordEl) continue;
+      for (let i = 0; i < totalChars; i++) {
+        const charEl = charRefs.current[i];
+        if (!charEl) continue;
 
-        const wordStart = i / words.length;
-        const wordEnd = (i + 1) / words.length;
-        const localProgress = (clampedProgress - wordStart) / (wordEnd - wordStart);
+        // character start threshold (first starts at 0.0, last starts at 0.82)
+        const charStart = (i / totalChars) * 0.82;
+        // character fade duration (18% scroll window overlap for smooth blending)
+        const charDuration = 0.18;
+        
+        const localProgress = (clampedProgress - charStart) / charDuration;
         const clampedLocal = Math.max(0, Math.min(1, localProgress));
 
         const easedLocal = easeOutQuad(clampedLocal);
 
-        // Opacity: 0.08 → 1.0 (high contrast)
-        wordEl.style.opacity = String(0.08 + easedLocal * 0.92);
+        // Opacity: 0.15 (dim gray) → 1.0 (bright white)
+        charEl.style.opacity = String(0.15 + easedLocal * 0.85);
 
-        // Glow shadow that grows with brightness
+        // White shadow glow that expands and blends
         if (easedLocal > 0.01) {
-          wordEl.style.textShadow = [
-            `0 0 ${easedLocal * 6}px rgba(53, 208, 255, ${easedLocal * 0.25})`,
-            `0 0 ${easedLocal * 14}px rgba(139, 123, 255, ${easedLocal * 0.12})`,
-          ].join(", ");
+          charEl.style.textShadow = `0 0 ${easedLocal * 8}px rgba(255, 255, 255, ${easedLocal * 0.45})`;
         } else {
-          wordEl.style.textShadow = "none";
+          charEl.style.textShadow = "none";
         }
       }
     };
 
-    // ── RAF polling loop ──
-    // Continuously reads scrollYProgress on every frame so fast scroll
-    // never skips intermediate positions.
-    // Skips update if progress hasn't changed (saves CPU during idle).
+    // RAF loop for smooth performance
     const tick = () => {
       const current = scrollYProgress.get();
-      if (Math.abs(current - lastProgressRef.current) > 0.001) {
+      if (Math.abs(current - lastProgressRef.current) > 0.0005) {
         lastProgressRef.current = current;
-        updateWords(current);
+        updateChars(current);
       }
       rafIdRef.current = requestAnimationFrame(tick);
     };
 
-    // Initial sync (prevent flash on mount)
-    updateWords(scrollYProgress.get());
+    // Initial sync
+    updateChars(scrollYProgress.get());
 
-    // Start RAF loop (runs continuously — progress-skip optimization
-    // prevents unnecessary style writes when not scrolling)
     rafIdRef.current = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(rafIdRef.current);
     };
-  }, [scrollYProgress, words.length]);
+  }, [scrollYProgress, wordsAndChars, totalChars]);
 
   return (
     <p
       ref={sectionRef}
       className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-medium tracking-tight leading-relaxed max-w-6xl text-center font-display drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] px-8 select-none"
     >
-      {words.map((word, i) => (
-        <span
-          key={i}
-          ref={(el) => {
-            if (el) wordRefs.current[i] = el;
-          }}
-          className="inline-block mr-[0.25em]"
-          style={{
-            color: "#ffffff",
-            opacity: 0.08,
-          }}
-        >
-          {word}
+      {wordsAndChars.map((w, wIdx) => (
+        <span key={wIdx} className="inline-block whitespace-nowrap mr-[0.25em]">
+          {w.chars.map((c) => (
+            <span
+              key={c.index}
+              ref={(el) => {
+                if (el) charRefs.current[c.index] = el;
+              }}
+              className="inline-block transition-all duration-75 ease-out"
+              style={{
+                color: "#ffffff",
+                opacity: 0.15,
+              }}
+            >
+              {c.char}
+            </span>
+          ))}
         </span>
       ))}
     </p>
