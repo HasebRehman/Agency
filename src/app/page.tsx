@@ -10,7 +10,7 @@ import ThreeDStars from "@/components/ui/ThreeDStars";
 export default function Home() {
   return (
     <main className="relative flex flex-col w-full min-h-screen bg-black overflow-x-hidden">
-      <ThreeDStars />
+      {/* Background 3D balls are now rendered directly inside the R3F Canvas */}
 
       {/* Header Overlay */}
       <Header />
