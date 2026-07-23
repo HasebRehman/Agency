@@ -113,7 +113,79 @@ const projects: Project[] = [
     ],
     image: "/projects/4th.png",
     link: "https://www.tapmesaveme.com/",
-  }, 
+  },
+  {
+    tag: "Featured Project",
+    title: "videotest.testrtc.com",
+    description:
+      "WebRTC testing tool for real-time video and audio quality checks, enabling 10K+ monthly test sessions with detailed performance metrics and diagnostics.",
+    stack: ["React", "Node.js", "WebRTC", "AWS", "TypeScript"],
+    image: "/projects/5.png",
+    link: "https://videotest.testrtc.com/",
+  },
+  {
+    tag: "Featured Project",
+    title: "orijin.io",
+    description:
+      "Agriculture platform for farm management, digital payments, and EUDR compliance, supporting 100K+ farm records and... transactions with real-time insights.",
+    stack: ["Express.js", "React", "Node.js", "MongoDB", "TypeScript"],
+    image: "/projects/6.png",
+    link: "https://orijin.io/",
+  },
+  {
+    tag: "Featured Project",
+    title: "AI Markdown Editor",
+    description:
+      "Collaborative WYSIWYG Markdown editor with AI integration, enabling seamless real-time editing for 5K+ concurrent users and... intelligent content suggestions.",
+    stack: ["Tiptap", "Yjs", "Next.js", "RAG", "Hocus Pocus"],
+    image: "/projects/7.png",
+    link: "",
+  },
+  {
+    tag: "Featured Project",
+    title: "hellosenseai.com",
+    description:
+      "AI receptionist for small businesses, handling 1M+ customer calls and message monthly with automated scheduling,... messaging, and CRM integration.",
+    stack: ["Lovable", "Supabase", "FastAPI", "Next.js", "VAPI"],
+    image: "/projects/8.png",
+    link: "https://hellosenseai.com/",
+  },
+  {
+    tag: "Featured Project",
+    title: "AI Voice Chatbot/Agent",
+    description:
+      "Automated AI voice assistant for financial institutions, processing 100K+ voice queries monthly with natural speech synthesis and... advanced workflows.",
+    stack: ["Node.js", "VAPI", "n8n", "ElevenLabs", "SDKs", "RAG"],
+    image: "/projects/9.png",
+    link: "",
+  },
+  {
+    tag: "Featured Project",
+    title: "docus.ai",
+    description:
+      "Medical AI platform offering health assistant, AI doctor, and lab test interpretation, serving 500K+ patients... worldwide with secure, scalable infrastructure.",
+    stack: ["Next.js", "Node.js", "Vercel", "AI Integrations"],
+    image: "/projects/10.png",
+    link: "https://docus.ai/",
+  },
+  {
+    tag: "Featured Project",
+    title: "qiyas.pro",
+    description:
+      "Quiz platform with multilingual support and admin dashboards, powering 50K+ quizzes completed monthly with real-time analytic... and user management.",
+    stack: ["Loveable", "Next.js", "Supabase", "Vercel", "TypeScript"],
+    image: "/projects/11.png",
+    link: "https://qiyas.pro/landing",
+  },
+  {
+    tag: "Featured Project",
+    title: "Crypto Arbitrage Bot",
+    description:
+      "Low-latency trading bot executing 1K+ daily arbitrage trades with MetaMask/Phantom login, real-time order book syncing, and... adaptive cross-exchange strategies.",
+    stack: ["Node.js", "Express.js", "Socket.IO", "CCXT Pro"],
+    image: "/projects/12.png",
+    link: "",
+  },
 ];
 
 export default function Projects() {
@@ -125,51 +197,86 @@ export default function Projects() {
       const container = containerRef.current;
       if (!container) return;
 
-      const rows = container.querySelectorAll<HTMLDivElement>(".project-row");
-
-      rows.forEach((row) => {
-        const leftEl = row.querySelector(".slide-left");
-        const rightEl = row.querySelector(".slide-right");
-
-        // Explicitly reset to the hidden/offset state first. If this
-        // page was cached (rather than fully unmounted) by client-side
-        // navigation, the elements may still be sitting at their
-        // already-played state from last time — this guarantees they
-        // start hidden again so the animation actually has something to
-        // play when you scroll back into view.
-        if (leftEl) gsap.set(leftEl, { opacity: 0, x: -80 });
-        if (rightEl) gsap.set(rightEl, { opacity: 0, x: 80 });
-
-        if (leftEl) {
-          gsap.to(leftEl, {
-            opacity: 1,
-            x: 0,
-            duration: 1,
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: row,
-              start: "top 80%",
-              // Play once when scrolling down into view. Nothing
-              // happens on scroll-up (no reverse).
-              toggleActions: "play none none none",
-            },
-          });
-        }
-
-        if (rightEl) {
-          gsap.to(rightEl, {
-            opacity: 1,
-            x: 0,
-            duration: 1,
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: row,
-              start: "top 80%",
-              toggleActions: "play none none none",
-            },
-          });
+      // Kill any leftover ScrollTrigger instances tied to this container
+      // from a previous mount/run. Without this, if the component
+      // survives a client-side route change (rather than fully
+      // unmounting), old triggers stack up on top of new ones and their
+      // "start" positions get calculated incorrectly — which is why the
+      // reveal animation can silently stop firing on repeat visits.
+      ScrollTrigger.getAll().forEach((st) => {
+        if (st.trigger && container.contains(st.trigger as Node)) {
+          st.kill();
         }
       });
+
+      const rows = container.querySelectorAll<HTMLDivElement>(".project-row");
+
+      // Sets up (or re-sets-up) the reveal animation for every row.
+      // Pulled into a function so both the initial run and the
+      // pageshow/back-navigation handler below can reuse the exact same
+      // logic.
+      const setupRowAnimations = () => {
+        rows.forEach((row) => {
+          const leftEl = row.querySelector<HTMLElement>(".slide-left");
+          const rightEl = row.querySelector<HTMLElement>(".slide-right");
+
+          // KEY FIX: if the browser has restored a scroll position where
+          // this row is already inside (or above) its trigger zone —
+          // which happens when you navigate back to this page and the
+          // scroll position is restored to where you left off — a
+          // ScrollTrigger created with start "top 80%" will NEVER fire,
+          // because it only fires on a future scroll crossing that line.
+          // If we still reset such a row to opacity:0, it stays invisible
+          // forever. So: check each element's current position first —
+          // already past its reveal point => show it immediately instead
+          // of hiding it and waiting for a scroll event that won't come.
+          const rowRect = row.getBoundingClientRect();
+          const alreadyInView = rowRect.top < window.innerHeight * 0.8;
+
+          if (leftEl) {
+            gsap.set(leftEl, alreadyInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -80 });
+          }
+          if (rightEl) {
+            gsap.set(rightEl, alreadyInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 80 });
+          }
+
+          // Only rows that are NOT already in view get a ScrollTrigger —
+          // they'll animate in normally as the user scrolls down to them.
+          if (!alreadyInView) {
+            if (leftEl) {
+              gsap.to(leftEl, {
+                opacity: 1,
+                x: 0,
+                duration: 1,
+                ease: "power3.out",
+                scrollTrigger: {
+                  trigger: row,
+                  start: "top 80%",
+                  // Play once when scrolling down into view. Nothing
+                  // happens on scroll-up (no reverse).
+                  toggleActions: "play none none none",
+                },
+              });
+            }
+
+            if (rightEl) {
+              gsap.to(rightEl, {
+                opacity: 1,
+                x: 0,
+                duration: 1,
+                ease: "power3.out",
+                scrollTrigger: {
+                  trigger: row,
+                  start: "top 80%",
+                  toggleActions: "play none none none",
+                },
+              });
+            }
+          }
+        });
+      };
+
+      setupRowAnimations();
 
       // Images load asynchronously and change each row's height/position
       // after ScrollTrigger has already measured the page. Refresh once
@@ -196,6 +303,27 @@ export default function Projects() {
           }
         });
       }
+
+      // Browser back/forward navigation can restore this page straight
+      // from the bfcache (bfcache = the browser's snapshot of the page
+      // it keeps so back/forward is instant). When that happens React
+      // effects don't re-run on their own, so the reveal animation
+      // wouldn't replay without this listener forcing a reset + refresh.
+      const handlePageShow = (e: PageTransitionEvent) => {
+        if (e.persisted) {
+          ScrollTrigger.getAll().forEach((st) => {
+            if (st.trigger && container.contains(st.trigger as Node)) {
+              st.kill();
+            }
+          });
+
+          setupRowAnimations();
+          ScrollTrigger.refresh();
+        }
+      };
+
+      window.addEventListener("pageshow", handlePageShow);
+      return () => window.removeEventListener("pageshow", handlePageShow);
     },
     // Re-running on pathname change makes sure that if this component
     // survives a client-side route change (rather than unmounting), the
@@ -213,6 +341,7 @@ export default function Projects() {
       <div className="max-w-6xl w-full flex flex-col items-center text-center gap-24">
         {projects.map((project, index) => {
           const isEven = index % 2 === 1; // 2nd, 4th... project => image on left
+          const hasLink = Boolean(project.link);
 
           return (
             <div
@@ -242,14 +371,30 @@ export default function Projects() {
                     </span>
                   ))}
                 </div>
-                <a
-                  href={project.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-fit text-xs uppercase tracking-widest font-semibold text-neutral-900 hover:text-sky-600 transition-colors flex items-center gap-1"
-                >
-                  View Project <span className="group-hover:translate-x-1 transition-transform">→</span>
-                </a>
+
+                {/* Only render a clickable link when one actually exists.
+                    Previously an empty href="" caused a click to reload
+                    the current page as if it were a "live" link. */}
+                {hasLink ? (
+                  <a
+                    href={project.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-fit text-xs uppercase tracking-widest font-semibold text-neutral-900 hover:text-sky-600 transition-colors flex items-center gap-1"
+                  >
+                    View Project{" "}
+                    <span className="group-hover:translate-x-1 transition-transform">
+                      →
+                    </span>
+                  </a>
+                ) : (
+                  <span
+                    className="w-fit text-xs uppercase tracking-widest font-semibold text-neutral-400 flex items-center gap-1 opacity-50 cursor-not-allowed select-none"
+                    aria-disabled="true"
+                  >
+                    Coming Soon
+                  </span>
+                )}
               </div>
 
               {/* ===== IMAGE BLOCK ===== */}
@@ -279,7 +424,12 @@ export default function Projects() {
                     gsap.killTweensOf(e.currentTarget);
                     gsap.to(e.currentTarget, { scale: 1, duration: 0.25, ease: "power2.out" });
                   }}
-                  className="w-full h-full object-cover"
+                  // absolute + inset-0 guarantees the image always fills
+                  // the parent card fully (regardless of its own natural
+                  // aspect ratio), which fixes images like orijin.io,
+                  // hellosenseai.com, and qiyas.pro rendering smaller
+                  // than the div.
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
               </div>
             </div>
