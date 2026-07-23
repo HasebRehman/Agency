@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
+gsap.registerPlugin(ScrollTrigger);
 
 export default function WhiteTransition() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -17,244 +16,119 @@ export default function WhiteTransition() {
   const bar5Ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    const bar1 = bar1Ref.current;
-    const bar2 = bar2Ref.current;
-    const bar3 = bar3Ref.current;
-    const bar4 = bar4Ref.current;
-    const bar5 = bar5Ref.current;
-    const content = contentRef.current;
+  useGSAP(
+    () => {
+      const container = containerRef.current;
+      const bar1 = bar1Ref.current;
+      const bar2 = bar2Ref.current;
+      const bar3 = bar3Ref.current;
+      const bar4 = bar4Ref.current;
+      const bar5 = bar5Ref.current;
+      const content = contentRef.current;
 
-    if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5 || !content) return;
+      if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5 || !content) return;
 
-    const ctx = gsap.context(() => {
-      // Set initial scale to 0 (completely hidden) and rotateX to 0 with perspective
-      gsap.set([bar1, bar2, bar3, bar4, bar5], { 
+      // Defensive: kill any stale instance with this id before creating a new one.
+      ScrollTrigger.getById("key-facts-pin")?.kill();
+
+      gsap.set([bar1, bar2, bar3, bar4, bar5], {
         scaleY: 0,
         rotateX: 0,
         transformPerspective: 800,
-        transformStyle: "preserve-3d"
+        transformStyle: "preserve-3d",
       });
       gsap.set(content, { opacity: 0, y: 30, pointerEvents: "none" });
 
       const tl = gsap.timeline({
         scrollTrigger: {
+          id: "key-facts-pin",
           trigger: container,
-          start: "top top",      // Pin when Section 3 reaches the top of the screen
-          end: "+=100%",         // Scroll space for resistance & animation duration (cinematic hold)
-          pin: true,             // Hold the page in place to create the tension
-          scrub: true,           // Sync progress exactly to the scrollbar
+          start: "top top",
+          end: "+=100%",
+          pin: true,
+          // Parent <main> is display:flex, which makes GSAP auto-disable
+          // pinSpacing — that collapses the scroll distance reserved for
+          // this pin and breaks the position math of every section below.
+          pinSpacing: true,
+          scrub: true,
           anticipatePin: 1,
-        }
+          invalidateOnRefresh: true,
+        },
       });
 
-      // --- BAR 1 (BOTTOM-MOST, progress 0.15 to 0.40) ---
-      tl.to(bar1, {
-        scaleY: 0.005,
-        rotateX: 0,
-        duration: 0.05,
-        ease: "none",
-      }, 0.15);
+      // Bars start immediately at pin start (no dead scroll) — the reveal
+      // text's last lines are still on screen when bar1 rises from bottom.
+      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, -0.12);
+      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, -0.07);
+      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.03);
 
-      tl.to(bar1, {
-        scaleY: 0.5,
-        rotateX: -60,
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.2);
+      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, -0.02);
+      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.03);
+      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.13);
 
-      tl.to(bar1, {
-        scaleY: 1.05,
-        rotateX: 0,
-        duration: 0.1,
-        ease: "power2.inOut",
-      }, 0.3);
+      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.08);
+      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.13);
+      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.23);
 
-      // --- BAR 2 (progress 0.29 to 0.54) ---
-      tl.to(bar2, {
-        scaleY: 0.005,
-        rotateX: 0,
-        duration: 0.05,
-        ease: "none",
-      }, 0.29);
+      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.18);
+      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.23);
+      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.33);
 
-      tl.to(bar2, {
-        scaleY: 0.5,
-        rotateX: -60,
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.34);
+      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.28);
+      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.33);
+      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.43);
 
-      tl.to(bar2, {
-        scaleY: 1.05,
-        rotateX: 0,
-        duration: 0.1,
-        ease: "power2.inOut",
-      }, 0.44);
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.53);
 
-      // --- BAR 3 (progress 0.43 to 0.68) ---
-      tl.to(bar3, {
-        scaleY: 0.005,
-        rotateX: 0,
-        duration: 0.05,
-        ease: "none",
-      }, 0.43);
+      // Hold the finished state for the remaining scroll distance so the
+      // key facts content stays readable before the pin releases.
+      tl.to({}, { duration: 0.2 }, 0.53);
 
-      tl.to(bar3, {
-        scaleY: 0.5,
-        rotateX: -60,
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.48);
-
-      tl.to(bar3, {
-        scaleY: 1.05,
-        rotateX: 0,
-        duration: 0.1,
-        ease: "power2.inOut",
-      }, 0.58);
-
-      // --- BAR 4 (progress 0.57 to 0.82) ---
-      tl.to(bar4, {
-        scaleY: 0.005,
-        rotateX: 0,
-        duration: 0.05,
-        ease: "none",
-      }, 0.57);
-
-      tl.to(bar4, {
-        scaleY: 0.5,
-        rotateX: -60,
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.62);
-
-      tl.to(bar4, {
-        scaleY: 1.05,
-        rotateX: 0,
-        duration: 0.1,
-        ease: "power2.inOut",
-      }, 0.72);
-
-      // --- BAR 5 (TOP-MOST, progress 0.71 to 0.96) ---
-      tl.to(bar5, {
-        scaleY: 0.005,
-        rotateX: 0,
-        duration: 0.05,
-        ease: "none",
-      }, 0.71);
-
-      tl.to(bar5, {
-        scaleY: 0.5,
-        rotateX: -60,
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.76);
-
-      tl.to(bar5, {
-        scaleY: 1.05,
-        rotateX: 0,
-        duration: 0.1,
-        ease: "power2.inOut",
-      }, 0.86);
-
-      // --- CONTENT ---
-      tl.to(content, {
-        opacity: 1,
-        y: 0,
-        pointerEvents: "auto",
-        duration: 0.1,
-        ease: "power2.out",
-      }, 0.95);
-    });
-
-    return () => ctx.revert();
-  }, []);
+      requestAnimationFrame(() => ScrollTrigger.refresh());
+    },
+    { scope: containerRef, dependencies: [] }
+  );
 
   return (
-    <section 
+    <section
       ref={containerRef}
       id="key-facts-section"
+      data-theme-section="white"
       className="relative w-full h-screen overflow-hidden bg-transparent z-20"
+      // Pull this section up so it pins while the last lines of the
+      // scroll-reveal text are still on screen — the bars then rise from
+      // the bottom over the text instead of after a blank gap.
+      style={{ marginTop: "-45vh" }}
     >
-      {/* 
-        Horizontal White Shield Bands:
-        Since container is transparent, the dark canvas / section 2 shows in the gaps.
-      */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-10"
-        style={{ perspective: "800px" }}
-      >
-        {/* Bar 5 (Top-most) */}
-        <div 
+      <div className="absolute inset-0 pointer-events-none z-10" style={{ perspective: "800px" }}>
+        <div
           ref={bar5Ref}
           className="absolute left-0 right-0 top-0 bg-white"
-          style={{ 
-            height: "20.5vh", 
-            transformOrigin: "center center",
-            willChange: "transform",
-            transformStyle: "preserve-3d"
-          }}
+          style={{ height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
-
-        {/* Bar 4 */}
-        <div 
+        <div
           ref={bar4Ref}
           className="absolute left-0 right-0 bg-white"
-          style={{ 
-            top: "20vh",
-            height: "20.5vh", 
-            transformOrigin: "center center",
-            willChange: "transform",
-            transformStyle: "preserve-3d"
-          }}
+          style={{ top: "20vh", height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
-
-        {/* Bar 3 */}
-        <div 
+        <div
           ref={bar3Ref}
           className="absolute left-0 right-0 bg-white"
-          style={{ 
-            top: "40vh",
-            height: "20.5vh", 
-            transformOrigin: "center center",
-            willChange: "transform",
-            transformStyle: "preserve-3d"
-          }}
+          style={{ top: "40vh", height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
-
-        {/* Bar 2 */}
-        <div 
+        <div
           ref={bar2Ref}
           className="absolute left-0 right-0 bg-white"
-          style={{ 
-            top: "60vh",
-            height: "20.5vh", 
-            transformOrigin: "center center",
-            willChange: "transform",
-            transformStyle: "preserve-3d"
-          }}
+          style={{ top: "60vh", height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
-
-        {/* Bar 1 (Bottom-most) */}
-        <div 
+        <div
           ref={bar1Ref}
           className="absolute left-0 right-0 bottom-0 bg-white"
-          style={{ 
-            height: "20.5vh", 
-            transformOrigin: "center center",
-            willChange: "transform",
-            transformStyle: "preserve-3d"
-          }}
+          style={{ height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
       </div>
 
-      {/* 
-        Section 3 Content:
-        Fades in over the solid white viewport once the shields are fully closed.
-      */}
-      <div 
+      <div
         ref={contentRef}
         id="key-facts-content"
         className="absolute inset-0 bg-white flex flex-col justify-center items-center text-center px-6 z-20"
@@ -267,8 +141,7 @@ export default function WhiteTransition() {
           <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-light max-w-xl mb-0">
             A snapshot of our experience and impact.
           </p>
-          
-          {/* Premium Stats Grid */}
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full mt-24 max-w-5xl border-t border-zinc-200 pt-16">
             <div className="flex flex-col items-center gap-2">
               <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">99%</span>

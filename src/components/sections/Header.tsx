@@ -13,6 +13,7 @@ export default function Header() {
   const [scrollY, setScrollY] = useState(0);
 
   // Subscribe to document.body class changes using React's built-in external store hook
+  // This avoids calling setState inside a MutationObserver callback (lint error fix)
   const showNav = useSyncExternalStore(
     (onStoreChange) => {
       const observer = new MutationObserver(onStoreChange);
@@ -23,7 +24,7 @@ export default function Header() {
       return () => observer.disconnect();
     },
     () => document.body.classList.contains("show-nav"),
-    // Server-side snapshot
+    // Server-side snapshot — no document available, default to false
     () => false,
   );
 
@@ -53,52 +54,43 @@ export default function Header() {
     }
   }, [showNav]);
 
-  // Track scroll coordinates and calculate visibility for Section 3
   useEffect(() => {
-    const handleScroll = () => {
+    const updateThemeAndScroll = () => {
       const currentScrollY = window.scrollY;
       setScrollY(currentScrollY);
-      
-      const section = document.getElementById("key-facts-section");
-      const contentEl = document.getElementById("key-facts-content");
-      
-      if (section && contentEl) {
-        // If ScrollTrigger has pinned the section, it wraps it in a .pin-spacer.
-        // We measure the offset of the spacer to get a stable, non-shifting top position.
-        const targetElement = section.parentElement && section.parentElement.classList.contains("pin-spacer")
-          ? section.parentElement
-          : section;
 
-        // Calculate stable offset top relative to the document body
-        let pinStart = 0;
-        let curr: HTMLElement | null = targetElement as HTMLElement;
-        while (curr) {
-          pinStart += curr.offsetTop;
-          curr = curr.offsetParent as HTMLElement | null;
-        }
+      // Check all sections with data-theme-section="white"
+      const whiteSections = document.querySelectorAll('[data-theme-section="white"]');
+      let isOverWhite = false;
 
-        // Only evaluate opacity when the scroll position is near Section 3 (pinStart - 100)
-        if (currentScrollY >= pinStart - 100) {
-          const opacity = parseFloat(window.getComputedStyle(contentEl).opacity || "0");
-          setIsLightBg(opacity >= 0.95);
+      whiteSections.forEach((sec, idx) => {
+        const rect = sec.getBoundingClientRect();
+        // Add a ~14-line (~380px) scroll delay on the first white section before triggering light theme navbar
+        if (idx === 0) {
+          if (rect.top <= 0 && rect.bottom > 80) {
+            isOverWhite = true;
+          }
         } else {
-          setIsLightBg(false);
+          if (rect.top < window.innerHeight * 0.7 && rect.bottom > 80) {
+            isOverWhite = true;
+          }
         }
-      } else {
-        setIsLightBg(false);
-      }
+      });
+
+      setIsLightBg(isOverWhite);
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
+    updateThemeAndScroll();
+    window.addEventListener("scroll", updateThemeAndScroll, { passive: true });
+    window.addEventListener("resize", updateThemeAndScroll);
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", updateThemeAndScroll);
+      window.removeEventListener("resize", updateThemeAndScroll);
+    };
   }, []);
 
-  // Header visibility rules:
-  // - Must be loaded (showNav is true)
-  // - Must be at the very top of the page (scrollY <= 30) OR scrolling over Section 3 (isLightBg is true)
-  const isHeaderVisible = showNav && (scrollY <= 30 || isLightBg);
+  const isHeaderVisible = showNav && (scrollY <= 60 || isLightBg);
 
   const navLinks = [
     { name: "Work", href: "#work" },
@@ -122,7 +114,6 @@ export default function Header() {
           stiffness: 100,
           damping: 15,
         }}
-        // Toggle capsule styling dynamically to match dark and white backgrounds
         className={`relative flex items-center justify-between rounded-full border backdrop-blur-[16px] transition-all duration-500 ease-in-out ${
           isLightBg
             ? "border-black/10 bg-white/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.06)]"
@@ -140,7 +131,6 @@ export default function Header() {
           href="#"
           className="absolute left-6 md:left-12 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10 w-[180px] h-[60px]"
         >
-          {/* Logo for dark background */}
           <Image
             src={logoImg}
             alt="CureLogics Logo"
@@ -150,7 +140,6 @@ export default function Header() {
               isLightBg ? "opacity-0" : "opacity-100"
             }`}
           />
-          {/* Logo for light background */}
           <Image
             src={logoImgLight}
             alt="CureLogics Logo"

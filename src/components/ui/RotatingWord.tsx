@@ -3,7 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const WORDS = ["Expertise", "Services", "Agency", "Develope"];
+const WORDS = ["Expertise", "Services", "Agency", "Develop"];
+
+// Find the longest word to use as a stable width spacer so all words stay centered
+const longestWord = WORDS.reduce((longest, word) =>
+  word.length > longest.length ? word : longest
+);
 
 export default function RotatingWord() {
   const [index, setIndex] = useState(0);
@@ -16,7 +21,7 @@ export default function RotatingWord() {
   }, []);
 
   return (
-    <span className="inline-block relative overflow-visible text-center ml-2 align-middle">
+    <span className="inline-flex relative overflow-visible text-left">
       <AnimatePresence mode="wait">
         <motion.span
           key={WORDS[index]}
@@ -24,20 +29,14 @@ export default function RotatingWord() {
           animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
           exit={{ opacity: 0, filter: "blur(12px)", y: -12 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute left-0 right-0 text-center bg-gradient-to-r from-[#1E4D91] via-[#1E4D91] via-65% to-[#E32637] font-extrabold"
-          style={{
-            WebkitBackgroundClip: "text",
-            backgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            color: "transparent",
-          }}
+          className="absolute left-1/2 -translate-x-1/2 bg-clip-text text-transparent bg-gradient-to-r from-[#35d0ff] to-[#8b7bff] font-extrabold"
         >
           {WORDS[index]}
         </motion.span>
       </AnimatePresence>
-      {/* Invisible spacer to reserve layout width dynamically */}
-      <span className="opacity-0 font-extrabold select-none pointer-events-none block text-center" aria-hidden="true">
-        Expertise
+      {/* Invisible spacer to reserve layout width for the longest word so all words stay centered */}
+      <span className="opacity-0 font-extrabold select-none pointer-events-none" aria-hidden="true">
+        {longestWord}
       </span>
     </span>
   );

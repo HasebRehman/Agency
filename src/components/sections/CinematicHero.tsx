@@ -365,8 +365,14 @@ export default function CinematicHero() {
       );
     });
 
-    // Refresh ScrollTrigger calculations after pinning is initialized
+    // Refresh ScrollTrigger calculations after pinning is initialized.
+    // IMPORTANT: this pin is created LATE (after the loader finishes), so
+    // ScrollTrigger's internal list is out of document order. Without
+    // sort(), the hero pin's spacer offset is never applied to the
+    // sections below it (key facts / services), which shifts all their
+    // start/end positions up by one viewport and makes them fire early.
     const refreshTimer = setTimeout(() => {
+      ScrollTrigger.sort();
       ScrollTrigger.refresh();
     }, 150);
 

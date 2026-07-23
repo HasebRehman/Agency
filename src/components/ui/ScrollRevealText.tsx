@@ -3,36 +3,31 @@
 import React, { useEffect, useRef } from "react";
 import { useScroll } from "framer-motion";
 
-// Smooth ease-in-out curve
-const easeInOutQuad = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+// Smooth ease-out curve (pure function, no hook needed)
+const easeOutQuad = (t: number) => t * (2 - t);
 
 export default function ScrollRevealText() {
   const sectionRef = useRef<HTMLParagraphElement>(null);
   const wordRefs = useRef<HTMLSpanElement[]>([]);
   const rafIdRef = useRef<number>(0);
-  const progressRef = useRef(0); // Holds the smoothed/lerped progress
+  const lastProgressRef = useRef(-1);
 
   const text =
     "At Curelogics, we specialize in delivering cutting-edge software solutions tailored to your business needs. Our team of experts is dedicated to transforming your ideas into reality.";
   const words = text.split(" ");
 
-  // Cover double the scroll distance (200vh total) to slow down the reveal speed
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start end", "end start"],
+    offset: ["start end", "start start"],
   });
 
   useEffect(() => {
-    // Initialize the starting progress to avoid initial jumps
-    progressRef.current = scrollYProgress.get();
-
-    const updateWords = (prog: number) => {
-      // Reveal words between 15% and 65% of the scroll timeline
-      const revealStart = 0.15;
-      const revealEnd = 0.65;
+    const updateWords = (progress: number) => {
+      const revealStart = 0.28;
+      const revealEnd = 0.95;
       const range = revealEnd - revealStart;
 
-      const clampedProgress = Math.max(0, Math.min(1, (prog - revealStart) / range));
+      const clampedProgress = Math.max(0, Math.min(1, (progress - revealStart) / range));
 
       for (let i = 0; i < words.length; i++) {
         const wordEl = wordRefs.current[i];
@@ -43,16 +38,16 @@ export default function ScrollRevealText() {
         const localProgress = (clampedProgress - wordStart) / (wordEnd - wordStart);
         const clampedLocal = Math.max(0, Math.min(1, localProgress));
 
-        const easedLocal = easeInOutQuad(clampedLocal);
+        const easedLocal = easeOutQuad(clampedLocal);
 
-        // Opacity: 0.08 -> 1.0
+        // Opacity: 0.08 → 1.0 (high contrast)
         wordEl.style.opacity = String(0.08 + easedLocal * 0.92);
 
-        // Subtle glowing shadow
+        // Glow shadow that grows with brightness
         if (easedLocal > 0.01) {
           wordEl.style.textShadow = [
-            `0 0 ${easedLocal * 8}px rgba(53, 208, 255, ${easedLocal * 0.25})`,
-            `0 0 ${easedLocal * 16}px rgba(139, 123, 255, ${easedLocal * 0.12})`,
+            `0 0 ${easedLocal * 6}px rgba(53, 208, 255, ${easedLocal * 0.25})`,
+            `0 0 ${easedLocal * 14}px rgba(139, 123, 255, ${easedLocal * 0.12})`,
           ].join(", ");
         } else {
           wordEl.style.textShadow = "none";
@@ -60,26 +55,24 @@ export default function ScrollRevealText() {
       }
     };
 
-    // ── RAF animation loop with lerping ──
+    // ── RAF polling loop ──
+    // Continuously reads scrollYProgress on every frame so fast scroll
+    // never skips intermediate positions.
+    // Skips update if progress hasn't changed (saves CPU during idle).
     const tick = () => {
-      const target = scrollYProgress.get();
-      const current = progressRef.current;
-
-      // Dampen the scroll progress updates with a smooth lerp
-      const diff = target - current;
-      if (Math.abs(diff) > 0.0001) {
-        // Slow, buttery smooth interpolation factor (0.055)
-        progressRef.current = current + diff * 0.055;
-        updateWords(progressRef.current);
+      const current = scrollYProgress.get();
+      if (Math.abs(current - lastProgressRef.current) > 0.001) {
+        lastProgressRef.current = current;
+        updateWords(current);
       }
-
       rafIdRef.current = requestAnimationFrame(tick);
     };
 
-    // Initial draw
-    updateWords(progressRef.current);
+    // Initial sync (prevent flash on mount)
+    updateWords(scrollYProgress.get());
 
-    // Start RAF loop
+    // Start RAF loop (runs continuously — progress-skip optimization
+    // prevents unnecessary style writes when not scrolling)
     rafIdRef.current = requestAnimationFrame(tick);
 
     return () => {

@@ -41,11 +41,11 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-black text-[#eaf1fb] antialiased" suppressHydrationWarning>
+	 <body className="min-h-full bg-black text-[#eaf1fb] antialiased" suppressHydrationWarning>
         <AnimationProvider>
           {children}
         </AnimationProvider>
-      </body>
+</body> 
     </html>
   );
 }
