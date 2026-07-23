@@ -44,13 +44,13 @@ export default function WhiteTransition() {
           id: "key-facts-pin",
           trigger: container,
           start: "top top",
-          end: "+=100%",
+          end: "+=250%", // Increased from +=100% to +=250% to make the scroll require extra effort
           pin: true,
           pinSpacing: true,
-          scrub: true,
+          scrub: 2.2, // Added 2.2s smooth lag for a heavy, ultra-fluid catching-up effect
           snap: {
             snapTo: [0.0, 0.227, 1.0], // Snap to start, just before bar1 rises, or end
-            duration: { min: 0.2, max: 0.6 },
+            duration: { min: 0.3, max: 0.8 },
             delay: 0.05,
             ease: "power2.out"
           },
