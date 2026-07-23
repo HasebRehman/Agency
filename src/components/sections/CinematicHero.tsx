@@ -83,7 +83,12 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   const ringRef = useRef<THREE.Mesh>(null);
   const gridRef = useRef<THREE.Mesh>(null);
   const coreRef = useRef<THREE.Mesh>(null);
+  const octaRef = useRef<THREE.Mesh>(null);
+  const smallKnotRef = useRef<THREE.Mesh>(null);
+  const satelliteRef = useRef<THREE.Mesh>(null);
+  
   const knotMatRef = useRef<THREE.ShaderMaterial>(null);
+  const smallKnotMatRef = useRef<THREE.ShaderMaterial>(null);
 
   const viewport = useThree((state) => state.viewport);
   const size = useThree((state) => state.size);
@@ -106,10 +111,21 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   const currentKnotPos = useRef(new THREE.Vector3(0, 0, 0));
   const currentCorePos = useRef(new THREE.Vector3(0, 0, 0));
 
+  // Auxiliary elements' local positions
+  const currentOctaPos = useRef(new THREE.Vector3(-0.8, 0.5, -0.4));
+  const currentSmallKnotPos = useRef(new THREE.Vector3(0.9, -0.5, -0.5));
+  const currentSatellitePos = useRef(new THREE.Vector3(-0.5, -0.6, -0.3));
+
+  // Smooth lerp accumulators for scroll-driven rotations (Direction & Spin changes)
+  const scrollRotKnot = useRef(new THREE.Vector3(0, 0, 0));
+  const scrollRotRing = useRef(new THREE.Vector2(0, 0));
+  const scrollRotGrid = useRef(0);
+  const scrollRotOcta = useRef(new THREE.Vector2(0, 0));
+  const scrollRotSmallKnot = useRef(new THREE.Vector2(0, 0));
+
   const isInitialized = useRef(false);
 
   useFrame((state, delta) => {
-    // Clamp delta to avoid massive leaps when tab is inactive
     const dt = Math.min(delta, 0.1);
 
     const progress = scrollProgressRef.current ?? 0;
@@ -196,12 +212,77 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     currentCorePos.current.y = THREE.MathUtils.lerp(currentCorePos.current.y, targetCoreY, lerpSpeed);
     currentCorePos.current.z = THREE.MathUtils.lerp(currentCorePos.current.z, targetCoreZ, lerpSpeed);
 
+    // 5. Auxiliary Elements local target values (floating in background/orbit)
+    // Octahedron drifts top-left to bottom-right
+    const targetOctaX = THREE.MathUtils.lerp(-0.8, 0.8, progress);
+    const targetOctaY = THREE.MathUtils.lerp(0.5, -0.6, progress);
+    const targetOctaZ = THREE.MathUtils.lerp(-0.4, -1.2, progress);
+
+    currentOctaPos.current.x = THREE.MathUtils.lerp(currentOctaPos.current.x, targetOctaX, lerpSpeed);
+    currentOctaPos.current.y = THREE.MathUtils.lerp(currentOctaPos.current.y, targetOctaY, lerpSpeed);
+    currentOctaPos.current.z = THREE.MathUtils.lerp(currentOctaPos.current.z, targetOctaZ, lerpSpeed);
+
+    // Small Knot drifts bottom-right to top-left
+    const targetSmallKnotX = THREE.MathUtils.lerp(0.9, -0.9, progress);
+    const targetSmallKnotY = THREE.MathUtils.lerp(-0.5, 0.5, progress);
+    const targetSmallKnotZ = THREE.MathUtils.lerp(-0.5, -1.0, progress);
+
+    currentSmallKnotPos.current.x = THREE.MathUtils.lerp(currentSmallKnotPos.current.x, targetSmallKnotX, lerpSpeed);
+    currentSmallKnotPos.current.y = THREE.MathUtils.lerp(currentSmallKnotPos.current.y, targetSmallKnotY, lerpSpeed);
+    currentSmallKnotPos.current.z = THREE.MathUtils.lerp(currentSmallKnotPos.current.z, targetSmallKnotZ, lerpSpeed);
+
+    // Satellite drifts bottom-left to top-right
+    const targetSatelliteX = THREE.MathUtils.lerp(-0.5, 0.6, progress);
+    const targetSatelliteY = THREE.MathUtils.lerp(-0.6, 0.7, progress);
+    const targetSatelliteZ = THREE.MathUtils.lerp(-0.3, -0.8, progress);
+
+    currentSatellitePos.current.x = THREE.MathUtils.lerp(currentSatellitePos.current.x, targetSatelliteX, lerpSpeed);
+    currentSatellitePos.current.y = THREE.MathUtils.lerp(currentSatellitePos.current.y, targetSatelliteY, lerpSpeed);
+    currentSatellitePos.current.z = THREE.MathUtils.lerp(currentSatellitePos.current.z, targetSatelliteZ, lerpSpeed);
+
+    // ─── SCROLL-DRIVEN ROTATIONS (DIRECTION & SPIN CHANGES) ───
+    // Main Knot rotates forward/clockwise on X, counter on Y, and tilts on Z
+    const targetKnotRotX = progress * Math.PI * 1.2;
+    const targetKnotRotY = progress * -Math.PI * 1.5;
+    const targetKnotRotZ = progress * Math.PI * 0.8;
+
+    // Gyro Ring spins and tilts
+    const targetRingRotX = progress * -Math.PI * 0.5;
+    const targetRingRotY = progress * Math.PI * 2.0;
+
+    // Grid rotates on Y
+    const targetGridRotY = progress * -Math.PI * 1.0;
+
+    // Octahedron flips around X and Y
+    const targetOctaRotX = progress * Math.PI * 1.5;
+    const targetOctaRotY = progress * -Math.PI * 1.0;
+
+    // Small Knot spins rapidly
+    const targetSmallKnotRotX = progress * -Math.PI * 2.0;
+    const targetSmallKnotRotY = progress * Math.PI * 1.5;
+
+    // Lerp scroll rotations smoothly
+    scrollRotKnot.current.x = THREE.MathUtils.lerp(scrollRotKnot.current.x, targetKnotRotX, lerpSpeed);
+    scrollRotKnot.current.y = THREE.MathUtils.lerp(scrollRotKnot.current.y, targetKnotRotY, lerpSpeed);
+    scrollRotKnot.current.z = THREE.MathUtils.lerp(scrollRotKnot.current.z, targetKnotRotZ, lerpSpeed);
+
+    scrollRotRing.current.x = THREE.MathUtils.lerp(scrollRotRing.current.x, targetRingRotX, lerpSpeed);
+    scrollRotRing.current.y = THREE.MathUtils.lerp(scrollRotRing.current.y, targetRingRotY, lerpSpeed);
+
+    scrollRotGrid.current = THREE.MathUtils.lerp(scrollRotGrid.current, targetGridRotY, lerpSpeed);
+
+    scrollRotOcta.current.x = THREE.MathUtils.lerp(scrollRotOcta.current.x, targetOctaRotX, lerpSpeed);
+    scrollRotOcta.current.y = THREE.MathUtils.lerp(scrollRotOcta.current.y, targetOctaRotY, lerpSpeed);
+
+    scrollRotSmallKnot.current.x = THREE.MathUtils.lerp(scrollRotSmallKnot.current.x, targetSmallKnotRotX, lerpSpeed);
+    scrollRotSmallKnot.current.y = THREE.MathUtils.lerp(scrollRotSmallKnot.current.y, targetSmallKnotRotY, lerpSpeed);
+
     // Update automatic base rotation (Layer 1)
     autoRotRef.current.x += dt * 0.15;
     autoRotRef.current.y += dt * 0.2;
     autoRotRef.current.z += dt * 0.1;
 
-    // Scroll velocity offsets (dynamic tilt & inertia shift)
+    // Scroll velocity offsets
     const velocityOffsetPositionX = normalizedVelocity * -0.15 * viewport.width * 0.1;
     const velocityOffsetY = normalizedVelocity * -0.1 * viewport.height * 0.1;
     const velocityTiltZ = normalizedVelocity * -0.3;
@@ -217,20 +298,20 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
       groupRef.current.scale.copy(currentScale.current);
     }
 
-    // Rotate elements independently
+    // Apply combined auto-rotation + scroll-rotation to each mesh
     if (knotRef.current) {
       knotRef.current.rotation.set(
-        autoRotRef.current.x * 0.6 + velocityTiltX,
-        autoRotRef.current.y * 0.8,
-        autoRotRef.current.z * 0.4 + velocityTiltZ
+        autoRotRef.current.x * 0.6 + scrollRotKnot.current.x + velocityTiltX,
+        autoRotRef.current.y * 0.8 + scrollRotKnot.current.y,
+        autoRotRef.current.z * 0.4 + scrollRotKnot.current.z + velocityTiltZ
       );
     }
 
     if (ringRef.current) {
       const ringVelocitySpin = normalizedVelocity * 3.0;
       ringRef.current.rotation.set(
-        Math.PI / 4,
-        autoRotRef.current.y * 1.8 + ringVelocitySpin,
+        Math.PI / 4 + scrollRotRing.current.x,
+        autoRotRef.current.y * 1.8 + scrollRotRing.current.y + ringVelocitySpin,
         autoRotRef.current.x * 0.5
       );
     }
@@ -238,13 +319,42 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     if (gridRef.current) {
       gridRef.current.rotation.set(
         -autoRotRef.current.x * 0.3,
-        -autoRotRef.current.y * 0.3,
+        -autoRotRef.current.y * 0.3 + scrollRotGrid.current,
         -autoRotRef.current.z * 0.2
+      );
+    }
+
+    // Rotate auxiliary objects
+    if (octaRef.current) {
+      octaRef.current.rotation.set(
+        autoRotRef.current.x * 1.2 + scrollRotOcta.current.x,
+        autoRotRef.current.y * 1.0 + scrollRotOcta.current.y,
+        autoRotRef.current.z * 0.8
+      );
+    }
+
+    if (smallKnotRef.current) {
+      smallKnotRef.current.rotation.set(
+        autoRotRef.current.x * 0.5 + scrollRotSmallKnot.current.x,
+        autoRotRef.current.y * 1.2 + scrollRotSmallKnot.current.y,
+        autoRotRef.current.z * 0.6
+      );
+    }
+
+    if (satelliteRef.current) {
+      // Inner satellite does a simple orbital rotation
+      satelliteRef.current.rotation.set(
+        autoRotRef.current.x,
+        autoRotRef.current.y,
+        autoRotRef.current.z
       );
     }
 
     if (knotMatRef.current) {
       knotMatRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+    }
+    if (smallKnotMatRef.current) {
+      smallKnotMatRef.current.uniforms.uTime.value = state.clock.getElapsedTime() * 0.8;
     }
   });
 
@@ -293,6 +403,47 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
         <sphereGeometry args={[0.2, 32, 32]} />
         <meshBasicMaterial
           color="#22d3ee"
+        />
+      </mesh>
+
+      {/* 5. Auxiliary Glossy Octahedron */}
+      <mesh ref={octaRef} position={currentOctaPos.current}>
+        <octahedronGeometry args={[0.18, 0]} />
+        <meshStandardMaterial
+          color="#db2777" // Hot Pink
+          roughness={0.2}
+          metalness={0.85}
+        />
+      </mesh>
+
+      {/* 6. Auxiliary Small Torus Knot */}
+      <mesh ref={smallKnotRef} position={currentSmallKnotPos.current}>
+        <torusKnotGeometry args={[0.16, 0.04, 64, 8, 3, 4]} />
+        <shaderMaterial
+          ref={smallKnotMatRef}
+          vertexShader={KnotShader.vertexShader}
+          fragmentShader={KnotShader.fragmentShader}
+          uniforms={{
+            uTime: { value: 0 },
+            uColorCyan: { value: new THREE.Color("#38bdf8") },
+            uColorPurple: { value: new THREE.Color("#4f46e5") },
+            uColorMagenta: { value: new THREE.Color("#d946ef") },
+            uLightPos: { value: new THREE.Vector3(5, 5, 5) }
+          }}
+        />
+      </mesh>
+
+      {/* 7. Auxiliary Glass Satellite Sphere */}
+      <mesh ref={satelliteRef} position={currentSatellitePos.current}>
+        <sphereGeometry args={[0.14, 16, 16]} />
+        <meshPhysicalMaterial
+          color="#38bdf8"
+          roughness={0.1}
+          metalness={0.1}
+          transmission={0.9}
+          thickness={0.5}
+          transparent
+          opacity={0.7}
         />
       </mesh>
     </group>
