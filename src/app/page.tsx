@@ -26,7 +26,7 @@ export default function Home() {
         
         {/* First Section — Hero content overlay */}
         <section id="hero-section" className="relative flex h-[100vh] w-full flex-col justify-center items-center bg-transparent px-6 overflow-hidden">
-          <div id="hero-content" className="max-w-5xl text-center z-10 select-none pointer-events-none">
+          <div id="hero-content" className="max-w-5xl text-center z-10 select-none pointer-events-none w-full">
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl text-zinc-50 mb-0 font-display drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] leading-[1.1] flex flex-col items-center">
               <span className="block text-zinc-300 font-light text-2xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight mb-2">
                 Elevating Your Business with
