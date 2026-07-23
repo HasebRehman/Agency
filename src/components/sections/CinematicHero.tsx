@@ -82,6 +82,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   const knotRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
   const gridRef = useRef<THREE.Mesh>(null);
+  const coreRef = useRef<THREE.Mesh>(null);
   const knotMatRef = useRef<THREE.ShaderMaterial>(null);
 
   const viewport = useThree((state) => state.viewport);
@@ -91,9 +92,19 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   // Accumulators for automatic rotation (Layer 1)
   const autoRotRef = useRef({ x: 0, y: 0, z: 0 });
 
-  // Current values for smooth interpolation
+  // Current values for smooth interpolation (Layer 3 - Ultra Smooth Damping)
   const currentPos = useRef(new THREE.Vector3(0, 0, 0));
   const currentScale = useRef(new THREE.Vector3(0.1, 0.1, 0.1));
+
+  // Individual components' local positions and scales for deconstructed scroll movement
+  const currentGridPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentGridScale = useRef(new THREE.Vector3(1, 1, 1));
+
+  const currentRingPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentRingScale = useRef(new THREE.Vector3(1, 1, 1));
+
+  const currentKnotPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentCorePos = useRef(new THREE.Vector3(0, 0, 0));
 
   const isInitialized = useRef(false);
 
@@ -128,19 +139,62 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
       targetS = viewport.height * 0.42; // occupies ~42% of viewport height
     }
 
+    // Set initial values instantly to prevent jumping on start
     if (!isInitialized.current) {
       currentPos.current.set(targetX, targetY, targetZ);
       currentScale.current.set(targetS, targetS, targetS);
       isInitialized.current = true;
     }
 
-    const lerpSpeed = 3.5 * dt;
+    // Ultra smooth damping factor (lerpSpeed = 2.2 * dt for buttery delay)
+    const lerpSpeed = 2.2 * dt;
     currentPos.current.x = THREE.MathUtils.lerp(currentPos.current.x, targetX, lerpSpeed);
     currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, lerpSpeed);
     currentPos.current.z = THREE.MathUtils.lerp(currentPos.current.z, targetZ, lerpSpeed);
 
     const targetScaleVec = new THREE.Vector3(targetS, targetS, targetS);
     currentScale.current.lerp(targetScaleVec, lerpSpeed);
+
+    // ─── DECONSTRUCTED / SEPARATED MOVEMENTS ON SCROLL ───
+    // 1. Technical Grid local target values (expands and flies top-right)
+    const targetGridX = progress * 0.7;
+    const targetGridY = progress * 0.4;
+    const targetGridZ = progress * -0.5;
+    const targetGridS = 1.0 + progress * 0.25;
+
+    currentGridPos.current.x = THREE.MathUtils.lerp(currentGridPos.current.x, targetGridX, lerpSpeed);
+    currentGridPos.current.y = THREE.MathUtils.lerp(currentGridPos.current.y, targetGridY, lerpSpeed);
+    currentGridPos.current.z = THREE.MathUtils.lerp(currentGridPos.current.z, targetGridZ, lerpSpeed);
+    currentGridScale.current.set(targetGridS, targetGridS, targetGridS);
+
+    // 2. Gyro Ring local target values (drifts bottom-left and scales up)
+    const targetRingX = progress * -0.5;
+    const targetRingY = progress * -0.7;
+    const targetRingZ = progress * 0.3;
+    const targetRingS = 1.0 + progress * 0.15;
+
+    currentRingPos.current.x = THREE.MathUtils.lerp(currentRingPos.current.x, targetRingX, lerpSpeed);
+    currentRingPos.current.y = THREE.MathUtils.lerp(currentRingPos.current.y, targetRingY, lerpSpeed);
+    currentRingPos.current.z = THREE.MathUtils.lerp(currentRingPos.current.z, targetRingZ, lerpSpeed);
+    currentRingScale.current.set(targetRingS, targetRingS, targetRingS);
+
+    // 3. Central Knot local target values (slight counter offset to emphasize separation)
+    const targetKnotX = progress * -0.15;
+    const targetKnotY = progress * 0.1;
+    const targetKnotZ = progress * 0.15;
+
+    currentKnotPos.current.x = THREE.MathUtils.lerp(currentKnotPos.current.x, targetKnotX, lerpSpeed);
+    currentKnotPos.current.y = THREE.MathUtils.lerp(currentKnotPos.current.y, targetKnotY, lerpSpeed);
+    currentKnotPos.current.z = THREE.MathUtils.lerp(currentKnotPos.current.z, targetKnotZ, lerpSpeed);
+
+    // 4. Core local target values (drifts right-down-back)
+    const targetCoreX = progress * 0.25;
+    const targetCoreY = progress * -0.25;
+    const targetCoreZ = progress * -0.25;
+
+    currentCorePos.current.x = THREE.MathUtils.lerp(currentCorePos.current.x, targetCoreX, lerpSpeed);
+    currentCorePos.current.y = THREE.MathUtils.lerp(currentCorePos.current.y, targetCoreY, lerpSpeed);
+    currentCorePos.current.z = THREE.MathUtils.lerp(currentCorePos.current.z, targetCoreZ, lerpSpeed);
 
     // Update automatic base rotation (Layer 1)
     autoRotRef.current.x += dt * 0.15;
@@ -173,7 +227,6 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     }
 
     if (ringRef.current) {
-      // Ring tilts at 45 degrees, spins faster when scrolling (scroll velocity interaction)
       const ringVelocitySpin = normalizedVelocity * 3.0;
       ringRef.current.rotation.set(
         Math.PI / 4,
@@ -183,7 +236,6 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     }
 
     if (gridRef.current) {
-      // Technical wireframe grid rotates slowly in opposite direction
       gridRef.current.rotation.set(
         -autoRotRef.current.x * 0.3,
         -autoRotRef.current.y * 0.3,
@@ -199,7 +251,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   return (
     <group ref={groupRef}>
       {/* 1. Technical outer wireframe cage (Cyan) */}
-      <mesh ref={gridRef}>
+      <mesh ref={gridRef} position={currentGridPos.current} scale={currentGridScale.current}>
         <icosahedronGeometry args={[1.5, 2]} />
         <meshBasicMaterial
           color="#06b6d4"
@@ -210,7 +262,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
       </mesh>
 
       {/* 2. Orbiting Gyro Ring (metallic magenta) */}
-      <mesh ref={ringRef}>
+      <mesh ref={ringRef} position={currentRingPos.current} scale={currentRingScale.current}>
         <torusGeometry args={[1.15, 0.04, 16, 100]} />
         <meshStandardMaterial
           color="#ec4899"
@@ -220,7 +272,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
       </mesh>
 
       {/* 3. Central mathematical Torus Knot (iridescent glass/chrome) */}
-      <mesh ref={knotRef}>
+      <mesh ref={knotRef} position={currentKnotPos.current}>
         <torusKnotGeometry args={[0.55, 0.18, 150, 16]} />
         <shaderMaterial
           ref={knotMatRef}
@@ -237,7 +289,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
       </mesh>
 
       {/* 4. Glowing inner core sphere */}
-      <mesh>
+      <mesh ref={coreRef} position={currentCorePos.current}>
         <sphereGeometry args={[0.2, 32, 32]} />
         <meshBasicMaterial
           color="#22d3ee"

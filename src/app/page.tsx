@@ -22,7 +22,7 @@ export default function Home() {
         This wrapper is the scroll trigger. It covers exactly 200vh (2 sections).
         The first section will be pinned.
       */}
-      <div id="hero-scroll-container">
+      <div id="hero-scroll-container" className="relative z-10">
         
         {/* First Section — Hero content overlay */}
         <section id="hero-section" className="relative flex h-[100vh] w-full flex-col justify-center items-center bg-transparent px-6 overflow-hidden">
