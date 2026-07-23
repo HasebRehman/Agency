@@ -73,11 +73,12 @@ const KnotShader = {
 
 // ─── Nested Planetary/Gyro Tech Visual Assembly ───
 interface VisualProps {
+  isLoaded: boolean;
   scrollProgressRef: React.RefObject<number>;
   scrollVelocityRef: React.RefObject<number>;
 }
 
-function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
+function AgencyVisual({ isLoaded, scrollProgressRef, scrollVelocityRef }: VisualProps) {
   const groupRef = useRef<THREE.Group>(null);
   const knotRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
@@ -99,7 +100,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
 
   // Current values for smooth interpolation (Layer 3 - Ultra Smooth Damping)
   const currentPos = useRef(new THREE.Vector3(0, 0, 0));
-  const currentScale = useRef(new THREE.Vector3(0.1, 0.1, 0.1));
+  const currentScale = useRef(new THREE.Vector3(0.01, 0.01, 0.01));
 
   // Individual components' local positions and scales for deconstructed scroll movement
   const currentGridPos = useRef(new THREE.Vector3(0, 0, 0));
@@ -123,7 +124,29 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   const scrollRotOcta = useRef(new THREE.Vector2(0, 0));
   const scrollRotSmallKnot = useRef(new THREE.Vector2(0, 0));
 
+  // ─── Loader Transition Modifiers [NEW] ───
+  // introProgress goes from 0 to 1 for elastic scale-up burst
+  // introSpin goes from 10.0 to 1.0 to decelerate a rapid turbine-like starting spin
+  const introProgress = useRef(0);
+  const introSpin = useRef(10.0);
   const isInitialized = useRef(false);
+
+  useEffect(() => {
+    if (isLoaded) {
+      // Animate the scale with a gorgeous spring-elastic ease
+      gsap.to(introProgress, {
+        current: 1.0,
+        duration: 2.2,
+        ease: "elastic.out(1.0, 0.75)"
+      });
+      // Decelerate the starting spin multiplier
+      gsap.to(introSpin, {
+        current: 1.0,
+        duration: 2.5,
+        ease: "power2.out"
+      });
+    }
+  }, [isLoaded]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.1);
@@ -142,20 +165,21 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     const curveOffset = Math.sin(progress * Math.PI);
 
     if (isMobile) {
-      // Mobile positioning: centered, moves up/down slightly
       targetX = 0;
       targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.08, progress);
       targetZ = THREE.MathUtils.lerp(0.0, -0.5, progress);
       targetS = viewport.height * 0.28;
     } else {
-      // Desktop positioning: centered backdrop behind text
       targetX = curveOffset * viewport.width * 0.04;
       targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.04, progress) - curveOffset * viewport.height * 0.06;
-      targetZ = THREE.MathUtils.lerp(0.0, -0.5, progress) - curveOffset * 2.0; // Recedes deep in 3D during scroll
-      targetS = viewport.height * 0.42; // occupies ~42% of viewport height
+      targetZ = THREE.MathUtils.lerp(0.0, -0.5, progress) - curveOffset * 2.0;
+      targetS = viewport.height * 0.42;
     }
 
-    if (!isInitialized.current) {
+    // Multiply target scale by the elastic intro progress
+    targetS = targetS * introProgress.current;
+
+    if (!isInitialized.current && targetS > 0.01) {
       currentPos.current.set(targetX, targetY, targetZ);
       currentScale.current.set(targetS, targetS, targetS);
       isInitialized.current = true;
@@ -169,7 +193,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     const targetScaleVec = new THREE.Vector3(targetS, targetS, targetS);
     currentScale.current.lerp(targetScaleVec, lerpSpeed);
 
-    // ─── DECONSTRUCTED / SEPARATED MOVEMENTS ON SCROLL ───
+    // Grid local target values (expands and flies top-right)
     const targetGridX = progress * 0.7;
     const targetGridY = progress * 0.4;
     const targetGridZ = progress * -0.5;
@@ -180,6 +204,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     currentGridPos.current.z = THREE.MathUtils.lerp(currentGridPos.current.z, targetGridZ, lerpSpeed);
     currentGridScale.current.set(targetGridS, targetGridS, targetGridS);
 
+    // Gyro Ring local target values (drifts bottom-left and scales up)
     const targetRingX = progress * -0.5;
     const targetRingY = progress * -0.7;
     const targetRingZ = progress * 0.3;
@@ -190,6 +215,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     currentRingPos.current.z = THREE.MathUtils.lerp(currentRingPos.current.z, targetRingZ, lerpSpeed);
     currentRingScale.current.set(targetRingS, targetRingS, targetRingS);
 
+    // Central Knot local target values
     const targetKnotX = progress * -0.15;
     const targetKnotY = progress * 0.1;
     const targetKnotZ = progress * 0.15;
@@ -198,6 +224,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     currentKnotPos.current.y = THREE.MathUtils.lerp(currentKnotPos.current.y, targetKnotY, lerpSpeed);
     currentKnotPos.current.z = THREE.MathUtils.lerp(currentKnotPos.current.z, targetKnotZ, lerpSpeed);
 
+    // Core local target values
     const targetCoreX = progress * 0.25;
     const targetCoreY = progress * -0.25;
     const targetCoreZ = progress * -0.25;
@@ -206,6 +233,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     currentCorePos.current.y = THREE.MathUtils.lerp(currentCorePos.current.y, targetCoreY, lerpSpeed);
     currentCorePos.current.z = THREE.MathUtils.lerp(currentCorePos.current.z, targetCoreZ, lerpSpeed);
 
+    // Auxiliary elements local target values
     const targetOctaX = THREE.MathUtils.lerp(-0.8, 0.8, progress);
     const targetOctaY = THREE.MathUtils.lerp(0.5, -0.6, progress);
     const targetOctaZ = THREE.MathUtils.lerp(-0.4, -1.2, progress);
@@ -261,9 +289,10 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
     scrollRotSmallKnot.current.x = THREE.MathUtils.lerp(scrollRotSmallKnot.current.x, targetSmallKnotRotX, lerpSpeed);
     scrollRotSmallKnot.current.y = THREE.MathUtils.lerp(scrollRotSmallKnot.current.y, targetSmallKnotRotY, lerpSpeed);
 
-    autoRotRef.current.x += dt * 0.15;
-    autoRotRef.current.y += dt * 0.2;
-    autoRotRef.current.z += dt * 0.1;
+    // Update automatic base rotation - multiplied by the spin decelerator (introSpin)
+    autoRotRef.current.x += dt * 0.15 * introSpin.current;
+    autoRotRef.current.y += dt * 0.20 * introSpin.current;
+    autoRotRef.current.z += dt * 0.10 * introSpin.current;
 
     const velocityOffsetPositionX = normalizedVelocity * -0.15 * viewport.width * 0.1;
     const velocityOffsetY = normalizedVelocity * -0.1 * viewport.height * 0.1;
@@ -428,7 +457,7 @@ function AgencyVisual({ scrollProgressRef, scrollVelocityRef }: VisualProps) {
   );
 }
 
-// ─── Floating 3D Volumetric Balls Component (Replaces 2D background canvas stars) ───
+// ─── Floating 3D Volumetric Balls Component ───
 function FloatingBalls() {
   const count = 75;
   const groupRef = useRef<THREE.Group>(null);
@@ -540,6 +569,39 @@ export default function CinematicHero() {
     if (!isLoaded) return;
 
     const ctx = gsap.context(() => {
+      // ─── HERO CONTENT ENTRANCE ANIMATION ───
+      gsap.fromTo(
+        "#hero-content",
+        {
+          opacity: 0,
+          y: 80,
+          scale: 0.96
+        },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 1.8,
+          ease: "power4.out",
+          delay: 0.1
+        }
+      );
+
+      gsap.fromTo(
+        "#hero-scroll-indicator",
+        {
+          opacity: 0,
+          y: 40
+        },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1.2,
+          ease: "power3.out",
+          delay: 0.7
+        }
+      );
+
       // Pin Section 1 (Hero) for 100vh
       ScrollTrigger.create({
         trigger: "#hero-section",
@@ -657,6 +719,7 @@ export default function CinematicHero() {
               <directionalLight position={[0, 5, 5]} intensity={0.5} color="#ffffff" />
 
               <AgencyVisual
+                isLoaded={isLoaded}
                 scrollProgressRef={scrollProgressRef}
                 scrollVelocityRef={scrollVelocityRef}
               />
