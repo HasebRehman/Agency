@@ -1,155 +1,165 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, Suspense } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { MeshDistortMaterial } from "@react-three/drei";
+import * as THREE from "three";
 import PremiumLoader from "./PremiumLoader";
 
-/* ─── Constants ─── */
-const TOTAL_FRAMES = 240;
-const FOLDER_NAME = "frame_img";
-const FILE_PREFIX = "ezgif-frame-";
-
-function getFrameUrl(index: number): string {
-  const padded = String(index).padStart(3, "0");
-  return `/animated_img/${FOLDER_NAME}/${FILE_PREFIX}${padded}.png`;
+// 3D Blob Component
+interface BlobProps {
+  scrollProgressRef: React.RefObject<number>;
+  scrollVelocityRef: React.RefObject<number>;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   CINEMATIC HERO — Scroll-Controlled Frame Sequence Animation
-   ══════════════════════════════════════════════════════════════ */
-export default function CinematicHero() {
-  /* ─── Refs ─── */
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cacheRef = useRef<Map<number, HTMLImageElement>>(new Map());
-  const loadedFramesRef = useRef<Set<number>>(new Set());
-  const inFlightRef = useRef<Set<number>>(new Set());
-  
-  const targetFrameIndexRef = useRef<number>(1);
-  const lerpedFrameIndexRef = useRef<number>(1);
-  const lastDrawnFrameRef = useRef<number>(-1);
+function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const materialRef = useRef<any>(null);
 
-  /* ─── State ─── */
+  const viewport = useThree((state) => state.viewport);
+  const size = useThree((state) => state.size);
+  const isMobile = size.width < 768;
+
+  // Accumulators for automatic rotation (Layer 1)
+  const autoRotRef = useRef({ x: 0, y: 0, z: 0 });
+
+  // Current values for smooth interpolation
+  const currentPos = useRef(new THREE.Vector3(isMobile ? 0 : viewport.width * 0.22, isMobile ? -0.4 : -0.2, 0));
+  const currentScale = useRef(new THREE.Vector3(1, 1, 1));
+  const currentDistort = useRef(0.35);
+
+  useFrame((state, delta) => {
+    // Clamp delta to avoid massive leaps when tab is inactive
+    const dt = Math.min(delta, 0.1);
+
+    const progress = scrollProgressRef.current ?? 0;
+    const rawVelocity = scrollVelocityRef.current ?? 0;
+
+    // Normalize velocity (pixels per second to range [-1.5, 1.5])
+    const normalizedVelocity = Math.max(-1.5, Math.min(1.5, rawVelocity / 1500));
+
+    let targetX = 0;
+    let targetY = 0;
+    let targetZ = 0;
+    let targetS = 1.0;
+
+    if (isMobile) {
+      // Mobile: Center aligned, moves down and shrinks on scroll
+      targetX = 0;
+      targetY = THREE.MathUtils.lerp(-viewport.height * 0.1, viewport.height * 0.15, progress);
+      targetZ = THREE.MathUtils.lerp(0.0, -0.8, progress);
+      targetS = viewport.height * 0.22; // responsive scale relative to viewport
+    } else {
+      // Desktop: Start right -> dips middle -> settle left
+      const startX = viewport.width * 0.22; // right side
+      const endX = -viewport.width * 0.22; // left side
+      const startY = -viewport.height * 0.05;
+      const endY = viewport.height * 0.1;
+      const startZ = 0.0;
+      const endZ = -0.5;
+
+      const curveOffset = Math.sin(progress * Math.PI);
+
+      targetX = THREE.MathUtils.lerp(startX, endX, progress);
+      targetY = THREE.MathUtils.lerp(startY, endY, progress) - curveOffset * viewport.height * 0.1;
+      targetZ = THREE.MathUtils.lerp(startZ, endZ, progress) - curveOffset * 1.8;
+      targetS = viewport.height * 0.38; // occupy 38% of viewport height
+    }
+
+    // Smoothly interpolate current position and scale toward targets
+    const lerpSpeed = 3.5 * dt;
+    currentPos.current.x = THREE.MathUtils.lerp(currentPos.current.x, targetX, lerpSpeed);
+    currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, lerpSpeed);
+    currentPos.current.z = THREE.MathUtils.lerp(currentPos.current.z, targetZ, lerpSpeed);
+
+    const targetScaleVec = new THREE.Vector3(targetS, targetS, targetS);
+    currentScale.current.lerp(targetScaleVec, lerpSpeed);
+
+    // Update automatic base rotation (always running)
+    autoRotRef.current.x += dt * 0.12;
+    autoRotRef.current.y += dt * 0.16;
+    autoRotRef.current.z += dt * 0.08;
+
+    // Scroll velocity offsets
+    const velocityOffsetPositionX = normalizedVelocity * -0.25 * viewport.width * 0.1;
+    const velocityOffsetY = normalizedVelocity * -0.15 * viewport.height * 0.1;
+    const velocityTiltZ = normalizedVelocity * -0.4;
+    const velocityTiltX = Math.abs(normalizedVelocity) * 0.2;
+
+    // Apply translation to group
+    if (groupRef.current) {
+      groupRef.current.position.set(
+        currentPos.current.x + velocityOffsetPositionX,
+        currentPos.current.y + velocityOffsetY,
+        currentPos.current.z
+      );
+      groupRef.current.scale.copy(currentScale.current);
+    }
+
+    // Apply combined rotation to mesh
+    if (meshRef.current) {
+      meshRef.current.rotation.set(
+        autoRotRef.current.x + velocityTiltX,
+        autoRotRef.current.y,
+        autoRotRef.current.z + velocityTiltZ
+      );
+    }
+
+    // Dynamic morph distortion based on velocity
+    const targetDistort = 0.35 + Math.abs(normalizedVelocity) * 0.15;
+    currentDistort.current = THREE.MathUtils.lerp(currentDistort.current, targetDistort, 5.0 * dt);
+
+    if (materialRef.current) {
+      materialRef.current.distort = currentDistort.current;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <mesh ref={meshRef} castShadow receiveShadow>
+        <icosahedronGeometry args={[1, 64]} />
+        <MeshDistortMaterial
+          ref={materialRef}
+          color="#2563eb" // Vibrant brand blue
+          roughness={0.25}
+          metalness={0.2} // Low metalness for strong diffuse visibility under lighting
+          clearcoat={1.0}
+          clearcoatRoughness={0.05}
+          distort={0.35}
+          speed={1.5}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+export default function CinematicHero() {
+  const scrollProgressRef = useRef(0);
+  const scrollVelocityRef = useRef(0);
+
+  const [mounted, setMounted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
 
-  /* ═══════════════════════════════════════
-     1. IMAGE LOADER HELPER
-     ═══════════════════════════════════════ */
-  const loadFrame = (index: number): Promise<void> => {
-    if (loadedFramesRef.current.has(index)) {
-      return Promise.resolve();
-    }
-    if (inFlightRef.current.has(index)) {
-      return Promise.resolve();
-    }
-
-    inFlightRef.current.add(index);
-    
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = getFrameUrl(index);
-      
-      // Asynchronously decode the image to avoid blocking the main thread
-      img.decode()
-        .then(() => {
-          cacheRef.current.set(index, img);
-          loadedFramesRef.current.add(index);
-          inFlightRef.current.delete(index);
-          resolve();
-        })
-        .catch(() => {
-          // Fallback to standard onload for backward compatibility
-          img.onload = () => {
-            cacheRef.current.set(index, img);
-            loadedFramesRef.current.add(index);
-            inFlightRef.current.delete(index);
-            resolve();
-          };
-          img.onerror = () => {
-            inFlightRef.current.delete(index);
-            resolve(); // Resolve to not block queue
-          };
-        });
-    });
-  };
-
-  /* ═══════════════════════════════════════
-     2. PRIORITIZE FRAMES ON SCROLL
-     ═══════════════════════════════════════ */
-  const prioritizeFrames = (centerFrame: number) => {
-    const WINDOW_SIZE = 15; // Load 15 frames ahead and behind
-    const start = Math.max(1, centerFrame - WINDOW_SIZE);
-    const end = Math.min(TOTAL_FRAMES, centerFrame + WINDOW_SIZE);
-    
-    for (let i = start; i <= end; i++) {
-      if (!loadedFramesRef.current.has(i) && !inFlightRef.current.has(i)) {
-        loadFrame(i);
-      }
-    }
-  };
-
-  /* ═══════════════════════════════════════
-     3. BACKGROUND PRELOAD REMAINDER
-     ═══════════════════════════════════════ */
-  const startBackgroundPreload = () => {
-    const remaining: number[] = [];
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
-      if (!loadedFramesRef.current.has(i)) {
-        remaining.push(i);
-      }
-    }
-
-    let index = 0;
-    const loadNextIdle = () => {
-      if (index >= remaining.length) return;
-      
-      const frameToLoad = remaining[index];
-      index++;
-      
-      const scheduler: (cb: () => void) => void =
-        typeof window !== "undefined" && "requestIdleCallback" in window
-          ? (cb) => window.requestIdleCallback(cb)
-          : (cb) => setTimeout(cb, 50);
-        
-      scheduler(() => {
-        loadFrame(frameToLoad).then(() => {
-          loadNextIdle();
-        });
-      });
-    };
-    
-    loadNextIdle();
-  };
-
-  /* ═══════════════════════════════════════
-     4. PRELOAD BASELINE FRAMES (PHASE 1)
-     ═══════════════════════════════════════ */
+  // Trigger loader transition
   useEffect(() => {
-    const BASELINE_INTERVAL = 8;
-    const baselineFrames: number[] = [];
-    for (let i = 1; i <= TOTAL_FRAMES; i += BASELINE_INTERVAL) {
-      baselineFrames.push(i);
-    }
-    if (baselineFrames[baselineFrames.length - 1] !== TOTAL_FRAMES) {
-      baselineFrames.push(TOTAL_FRAMES);
-    }
+    setMounted(true);
 
-    let loadedCount = 0;
-    const totalBaseline = baselineFrames.length;
-
-    baselineFrames.forEach(async (index) => {
-      await loadFrame(index);
-      loadedCount++;
-      setPreloadProgress(Math.round((loadedCount / totalBaseline) * 100));
-      
-      if (loadedCount === totalBaseline) {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 10;
+      setPreloadProgress(Math.min(progress, 100));
+      if (progress >= 100) {
+        clearInterval(interval);
         setAssetsReady(true);
-        // Start background preloading for high-framerate scroll
-        startBackgroundPreload();
       }
-    });
+    }, 60);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleTransitionComplete = () => {
@@ -157,140 +167,12 @@ export default function CinematicHero() {
     document.body.classList.add("show-nav");
   };
 
-  /* ═══════════════════════════════════════
-     5. FIT IMAGE COVER MATH
-     ═══════════════════════════════════════ */
-  const drawImageProp = (
-    ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
-    w: number,
-    h: number
-  ) => {
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const scale = Math.max(w / iw, h / ih);
-    const nw = iw * scale;
-    const nh = ih * scale;
-    const cx = (w - nw) * 0.5;
-    const cy = (h - nh) * 0.5;
-    ctx.drawImage(img, cx, cy, nw, nh);
-  };
-
-  /* ═══════════════════════════════════════
-     6. NEAREST-NEIGHBOR RESOLVING
-     ═══════════════════════════════════════ */
-  const findNearestLoadedFrame = (index: number): HTMLImageElement | undefined => {
-    let minDiff = Infinity;
-    let nearestIndex = -1;
-    
-    for (const loadedIndex of loadedFramesRef.current) {
-      const diff = Math.abs(loadedIndex - index);
-      if (diff < minDiff) {
-        minDiff = diff;
-        nearestIndex = loadedIndex;
-      }
-    }
-    
-    if (nearestIndex !== -1) {
-      return cacheRef.current.get(nearestIndex);
-    }
-    
-    return undefined;
-  };
-
-  /* ═══════════════════════════════════════
-     7. DRAW FRAME ON CANVAS
-     ═══════════════════════════════════════ */
-  const drawFrame = (index: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let img = cacheRef.current.get(index);
-    
-    if (!img || !loadedFramesRef.current.has(index)) {
-      img = findNearestLoadedFrame(index);
-    }
-
-    if (img) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawImageProp(ctx, img, canvas.width, canvas.height);
-      lastDrawnFrameRef.current = index;
-    }
-  };
-
-  /* ═══════════════════════════════════════
-     8. CANVAS RESIZE HANDLER
-     ═══════════════════════════════════════ */
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const dpr = window.devicePixelRatio || 1;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      
-      if (isLoaded) {
-        drawFrame(Math.round(lerpedFrameIndexRef.current));
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [isLoaded]);
-
-  /* ═══════════════════════════════════════
-     9. FRAME INTERPOLATION LOOP (RAF)
-     ═══════════════════════════════════════ */
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    let animationFrameId: number;
-    
-    const render = () => {
-      const target = targetFrameIndexRef.current;
-      const current = lerpedFrameIndexRef.current;
-      
-      const diff = target - current;
-      if (Math.abs(diff) > 0.01) {
-        lerpedFrameIndexRef.current = current + diff * 0.12; // buttery smooth lerp
-      } else {
-        lerpedFrameIndexRef.current = target;
-      }
-      
-      const activeFrame = Math.round(lerpedFrameIndexRef.current);
-      
-      if (activeFrame !== lastDrawnFrameRef.current) {
-        drawFrame(activeFrame);
-      }
-      
-      animationFrameId = requestAnimationFrame(render);
-    };
-    
-    animationFrameId = requestAnimationFrame(render);
-    
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [isLoaded]);
-
-  /* ═══════════════════════════════════════
-     10. GSAP SCROLLTRIGGER PIN & SYNC
-     ═══════════════════════════════════════ */
+  // GSAP ScrollTrigger
   useEffect(() => {
     if (!isLoaded) return;
 
     const ctx = gsap.context(() => {
-      // Pin Section 1 (Hero) for 100vh of scroll distance
+      // Pin Section 1 (Hero) for 100vh
       ScrollTrigger.create({
         trigger: "#hero-section",
         pin: true,
@@ -299,23 +181,19 @@ export default function CinematicHero() {
         pinSpacing: true,
       });
 
-      // Map scroll progress of container (Hero pinned + About) to frame indexes
+      // Track scroll progress and velocity of the scroll container
       ScrollTrigger.create({
         trigger: "#hero-scroll-container",
         start: "top top",
         end: "bottom bottom",
         scrub: true,
         onUpdate: (self) => {
-          const p = self.progress;
-          // Map 0-1 progress to 1-TOTAL_FRAMES
-          const targetFrame = Math.round(1 + p * (TOTAL_FRAMES - 1));
-          targetFrameIndexRef.current = targetFrame;
-          
-          prioritizeFrames(targetFrame);
+          scrollProgressRef.current = self.progress;
+          scrollVelocityRef.current = self.getVelocity();
         },
       });
 
-      // Fade out hero content during the first half of pinning
+      // Fade out hero content during scroll
       gsap.to("#hero-content", {
         scrollTrigger: {
           trigger: "#hero-scroll-container",
@@ -327,7 +205,7 @@ export default function CinematicHero() {
         y: -60,
       });
 
-      // Fade out scroll indicator early
+      // Fade out scroll indicator
       gsap.to("#hero-scroll-indicator", {
         scrollTrigger: {
           trigger: "#hero-scroll-container",
@@ -339,8 +217,9 @@ export default function CinematicHero() {
         y: 30,
       });
 
-      // Premium card expansion and reveal for Section 3 white panel
-      gsap.fromTo("#white-panel",
+      // Section 3 white panel transition
+      gsap.fromTo(
+        "#white-panel",
         {
           y: 160,
           scale: 0.98,
@@ -360,17 +239,11 @@ export default function CinematicHero() {
             start: "top bottom",
             end: "top 10%",
             scrub: true,
-          }
+          },
         }
       );
     });
 
-    // Refresh ScrollTrigger calculations after pinning is initialized.
-    // IMPORTANT: this pin is created LATE (after the loader finishes), so
-    // ScrollTrigger's internal list is out of document order. Without
-    // sort(), the hero pin's spacer offset is never applied to the
-    // sections below it (key facts / services), which shifts all their
-    // start/end positions up by one viewport and makes them fire early.
     const refreshTimer = setTimeout(() => {
       ScrollTrigger.sort();
       ScrollTrigger.refresh();
@@ -382,9 +255,6 @@ export default function CinematicHero() {
     };
   }, [isLoaded]);
 
-  /* ═══════════════════════════════════════
-     RENDER LOADER + CANVAS
-     ═══════════════════════════════════════ */
   return (
     <>
       {/* Premium Loader Overlay */}
@@ -395,11 +265,37 @@ export default function CinematicHero() {
         />
       )}
 
-      {/* Main Canvas Container */}
-      <div className="fixed inset-0 w-screen h-screen z-0 bg-black overflow-hidden pointer-events-none">
-        <canvas ref={canvasRef} className="w-full h-full block" />
-      </div>
+      {/* R3F Canvas Container - placed on top of background stars at z-[2] with bg-transparent */}
+      {mounted && (
+        <div className="fixed inset-0 w-screen h-screen z-[2] bg-transparent overflow-hidden pointer-events-none">
+          <Canvas
+            camera={{ position: [0, 0, 5], fov: 45 }}
+            gl={{ antialias: true, alpha: true }}
+            style={{ background: "transparent" }}
+          >
+            <Suspense fallback={null}>
+              <ambientLight intensity={0.6} color="#051025" />
+              
+              {/* Key blue light */}
+              <pointLight position={[10, 10, 10]} intensity={2.5} color="#64CEFB" />
+              
+              {/* Soft blue-purple fill light */}
+              <pointLight position={[-10, -10, -10]} intensity={1.0} color="#1E4D91" />
+              
+              {/* Crimson Red rim light from back-left */}
+              <pointLight position={[-6, 4, -6]} intensity={5.0} color="#ff3344" />
+              
+              {/* Ambient white spotlight */}
+              <directionalLight position={[0, 5, 5]} intensity={0.5} color="#ffffff" />
+
+              <Blob
+                scrollProgressRef={scrollProgressRef}
+                scrollVelocityRef={scrollVelocityRef}
+              />
+            </Suspense>
+          </Canvas>
+        </div>
+      )}
     </>
   );
 }
-
