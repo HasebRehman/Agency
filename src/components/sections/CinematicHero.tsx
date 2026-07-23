@@ -9,14 +9,6 @@ import PremiumLoader from "./PremiumLoader";
 
 // ─── Custom Iridescent Deformed Shader Material ───
 const BlobShader = {
-  uniforms: {
-    uTime: { value: 0 },
-    uDistort: { value: 0.35 },
-    uColorCyan: { value: new THREE.Color("#22d3ee") },
-    uColorPurple: { value: new THREE.Color("#7c3aed") },
-    uColorMagenta: { value: new THREE.Color("#ec4899") },
-    uLightPos: { value: new THREE.Vector3(5, 5, 5) }
-  },
   vertexShader: `
     uniform float uTime;
     uniform float uDistort;
@@ -91,10 +83,8 @@ const BlobShader = {
     }
 
     void main() {
-      // Local normal for a unit sphere is just normalize(position)
       vec3 norm = normalize(position);
       
-      // Construct local tangent space (tangent and bitangent)
       vec3 tangent = vec3(1.0, 0.0, 0.0);
       if (abs(dot(norm, tangent)) > 0.9) {
         tangent = vec3(0.0, 0.0, 1.0);
@@ -104,13 +94,12 @@ const BlobShader = {
       
       float epsilon = 0.015;
       
-      // Calculate ridge noise to create organic bulges/folds like the reference image
+      // Ridge Noise for organic creases and bulges
       float noise1 = snoise(position * 1.4 + uTime * 0.5);
       float ridge1 = 1.0 - abs(noise1);
       float noise2 = snoise(position * 2.8 - uTime * 0.9) * 0.12;
       float disp = (ridge1 * 0.35 + noise2);
 
-      // Evaluate nearby positions for numerical normal estimation
       float noiseT1 = snoise((position + t * epsilon) * 1.4 + uTime * 0.5);
       float ridgeT1 = 1.0 - abs(noiseT1);
       float noiseT2 = snoise((position + t * epsilon) * 2.8 - uTime * 0.9) * 0.12;
@@ -121,7 +110,6 @@ const BlobShader = {
       float noiseB2 = snoise((position + b * epsilon) * 2.8 - uTime * 0.9) * 0.12;
       float dispB = (ridgeB1 * 0.35 + noiseB2);
 
-      // Displace along surface normals
       vec3 p = position + norm * disp * uDistort;
       
       vec3 normT = normalize(position + t * epsilon);
@@ -130,7 +118,6 @@ const BlobShader = {
       vec3 normB = normalize(position + b * epsilon);
       vec3 pB = (position + b * epsilon) + normB * dispB * uDistort;
       
-      // Recalculate normal based on displaced positions
       vec3 newNormal = normalize(cross(pT - p, pB - p));
       vNormal = normalize(normalMatrix * newNormal);
       vPosition = p;
@@ -157,32 +144,28 @@ const BlobShader = {
       vec3 normal = normalize(vNormal);
       vec3 viewDir = normalize(vViewPosition);
       
-      // 1. Fresnel term for iridescent rim outline
+      // 1. Fresnel term for iridescent outline
       float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.5);
       
-      // 2. Diffuse lighting calculations
+      // 2. Diffuse shading
       vec3 lightDir = normalize(uLightPos - vPosition);
       float diffuse = max(dot(normal, lightDir), 0.0);
       
-      // 3. Color gradients
+      // 3. Iridescent color blending
       float yNorm = clamp((vPosition.y + 1.2) / 2.4, 0.0, 1.0);
       vec3 baseMix = mix(uColorPurple, uColorCyan, yNorm);
       
-      // Valleys/crevices (low displacement) are painted dark indigo, ridges are bright cyan
       float dispNorm = clamp((vDisplacement + 0.1) / 0.55, 0.0, 1.0);
       vec3 finalBase = mix(uColorPurple * 0.3, baseMix, dispNorm);
       
-      // Mix magenta highlight on edges and creases
       finalBase = mix(finalBase, uColorMagenta, fresnel * 0.4 + (1.0 - dispNorm) * 0.2);
       
-      // 4. Combine base color with diffuse shading
       vec3 litColor = finalBase * (diffuse * 0.8 + 0.35);
       
-      // 5. Apply iridescent Fresnel glow
       vec3 rimColor = mix(uColorCyan, uColorMagenta, fresnel);
       vec3 finalColor = mix(litColor, rimColor, fresnel * 0.85);
       
-      // 6. Shiny specular highlight for a wet, glossy coat
+      // Specular highlights
       vec3 halfDir = normalize(lightDir + viewDir);
       float spec = pow(max(dot(normal, halfDir), 0.0), 48.0);
       finalColor += vec3(1.0) * spec * 0.6;
@@ -194,11 +177,24 @@ const BlobShader = {
 
 // 3D Blob Component
 interface BlobProps {
+  index: number;
   scrollProgressRef: React.RefObject<number>;
   scrollVelocityRef: React.RefObject<number>;
+  colorCyan: string;
+  colorPurple: string;
+  colorMagenta: string;
+  distortSpeed: number;
 }
 
-function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
+function Blob({
+  index,
+  scrollProgressRef,
+  scrollVelocityRef,
+  colorCyan,
+  colorPurple,
+  colorMagenta,
+  distortSpeed
+}: BlobProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
@@ -211,12 +207,13 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
   const autoRotRef = useRef({ x: 0, y: 0, z: 0 });
 
   // Current values for smooth interpolation
-  const currentPos = useRef(new THREE.Vector3(0, isMobile ? -0.4 : -0.2, 0));
-  const currentScale = useRef(new THREE.Vector3(1, 1, 1));
+  const currentPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentScale = useRef(new THREE.Vector3(0.1, 0.1, 0.1));
   const currentDistort = useRef(0.35);
 
+  const isInitialized = useRef(false);
+
   useFrame((state, delta) => {
-    // Clamp delta to avoid massive leaps when tab is inactive
     const dt = Math.min(delta, 0.1);
 
     const progress = scrollProgressRef.current ?? 0;
@@ -230,24 +227,63 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
     let targetZ = 0;
     let targetS = 1.0;
 
-    if (isMobile) {
-      // Mobile: Center aligned behind text, moves vertically and scales down slightly
-      targetX = 0;
-      targetY = THREE.MathUtils.lerp(-viewport.height * 0.08, viewport.height * 0.12, progress);
-      targetZ = THREE.MathUtils.lerp(0.0, -0.6, progress);
-      targetS = viewport.height * 0.22;
-    } else {
-      // Desktop: Centered behind text, creates a wave and goes deeper on scroll
-      const curveOffset = Math.sin(progress * Math.PI);
+    const curveOffset = Math.sin(progress * Math.PI);
 
-      // Slight wave side-drift, but returns centered at both ends (progress 0 & 1)
-      targetX = curveOffset * viewport.width * 0.05;
-      targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.05, progress) - curveOffset * viewport.height * 0.08;
-      targetZ = THREE.MathUtils.lerp(0.0, -0.6, progress) - curveOffset * 2.0; // Recedes deep in 3D during scroll
-      targetS = viewport.height * 0.52; // Very large, visually dominant backdrop behind the heading
+    if (isMobile) {
+      // Mobile layout: Stacked vertically behind text overlay
+      if (index === 0) {
+        targetX = 0;
+        targetY = THREE.MathUtils.lerp(-viewport.height * 0.08, viewport.height * 0.12, progress);
+        targetZ = THREE.MathUtils.lerp(0.0, -0.6, progress);
+        targetS = viewport.height * 0.22;
+      } else if (index === 1) {
+        targetX = -viewport.width * 0.15;
+        targetY = THREE.MathUtils.lerp(viewport.height * 0.15, -viewport.height * 0.15, progress);
+        targetZ = THREE.MathUtils.lerp(-0.5, -1.2, progress);
+        targetS = viewport.height * 0.12;
+      } else {
+        targetX = viewport.width * 0.15;
+        targetY = THREE.MathUtils.lerp(-viewport.height * 0.2, viewport.height * 0.2, progress);
+        targetZ = THREE.MathUtils.lerp(-0.8, -1.5, progress);
+        targetS = viewport.height * 0.09;
+      }
+    } else {
+      // Desktop layout: Multi-blob responsive path coordinates
+      if (index === 0) {
+        // Main centerpiece blob
+        targetX = curveOffset * viewport.width * 0.05;
+        targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.05, progress) - curveOffset * viewport.height * 0.08;
+        targetZ = THREE.MathUtils.lerp(0.0, -0.6, progress) - curveOffset * 2.0;
+        targetS = viewport.height * 0.45;
+      } else if (index === 1) {
+        // Left-to-Right diagonal sweeping blob
+        const startX = -viewport.width * 0.25;
+        const endX = viewport.width * 0.2;
+        const startY = viewport.height * 0.22;
+        const endY = -viewport.height * 0.25;
+        targetX = THREE.MathUtils.lerp(startX, endX, progress) + curveOffset * viewport.width * 0.08;
+        targetY = THREE.MathUtils.lerp(startY, endY, progress);
+        targetZ = THREE.MathUtils.lerp(-0.8, -1.2, progress) - curveOffset * 0.8;
+        targetS = viewport.height * 0.22;
+      } else {
+        // Right-to-Left diagonal sweeping blob
+        const startX = viewport.width * 0.3;
+        const endX = -viewport.width * 0.25;
+        const startY = -viewport.height * 0.25;
+        const endY = viewport.height * 0.2;
+        targetX = THREE.MathUtils.lerp(startX, endX, progress) - curveOffset * viewport.width * 0.08;
+        targetY = THREE.MathUtils.lerp(startY, endY, progress);
+        targetZ = THREE.MathUtils.lerp(-1.2, -0.8, progress) - curveOffset * 0.6;
+        targetS = viewport.height * 0.16;
+      }
     }
 
-    // Smoothly interpolate current position and scale toward targets
+    if (!isInitialized.current) {
+      currentPos.current.set(targetX, targetY, targetZ);
+      currentScale.current.set(targetS, targetS, targetS);
+      isInitialized.current = true;
+    }
+
     const lerpSpeed = 3.5 * dt;
     currentPos.current.x = THREE.MathUtils.lerp(currentPos.current.x, targetX, lerpSpeed);
     currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, lerpSpeed);
@@ -256,10 +292,11 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
     const targetScaleVec = new THREE.Vector3(targetS, targetS, targetS);
     currentScale.current.lerp(targetScaleVec, lerpSpeed);
 
-    // Update automatic base rotation (always running)
-    autoRotRef.current.x += dt * 0.12;
-    autoRotRef.current.y += dt * 0.16;
-    autoRotRef.current.z += dt * 0.08;
+    // Apply rotation accumulators (individual speed relative to index)
+    const rotSpeedMultiplier = index === 0 ? 1.0 : index === 1 ? 1.4 : 0.8;
+    autoRotRef.current.x += dt * 0.12 * rotSpeedMultiplier;
+    autoRotRef.current.y += dt * 0.16 * rotSpeedMultiplier;
+    autoRotRef.current.z += dt * 0.08 * rotSpeedMultiplier;
 
     // Scroll velocity offsets
     const velocityOffsetPositionX = normalizedVelocity * -0.2 * viewport.width * 0.1;
@@ -267,7 +304,6 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
     const velocityTiltZ = normalizedVelocity * -0.3;
     const velocityTiltX = Math.abs(normalizedVelocity) * 0.15;
 
-    // Apply translation to group
     if (groupRef.current) {
       groupRef.current.position.set(
         currentPos.current.x + velocityOffsetPositionX,
@@ -277,21 +313,20 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
       groupRef.current.scale.copy(currentScale.current);
     }
 
-    // Apply combined rotation to mesh
     if (meshRef.current) {
+      const orbitOffset = index === 0 ? 0 : index === 1 ? Math.sin(state.clock.getElapsedTime() * 0.8) * 0.15 : Math.cos(state.clock.getElapsedTime() * 0.6) * 0.12;
       meshRef.current.rotation.set(
         autoRotRef.current.x + velocityTiltX,
-        autoRotRef.current.y,
+        autoRotRef.current.y + orbitOffset,
         autoRotRef.current.z + velocityTiltZ
       );
     }
 
-    // Dynamic morph distortion based on velocity
     const targetDistort = 0.35 + Math.abs(normalizedVelocity) * 0.15;
     currentDistort.current = THREE.MathUtils.lerp(currentDistort.current, targetDistort, 5.0 * dt);
 
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+      materialRef.current.uniforms.uTime.value = state.clock.getElapsedTime() * distortSpeed;
       materialRef.current.uniforms.uDistort.value = currentDistort.current;
     }
   });
@@ -307,9 +342,9 @@ function Blob({ scrollProgressRef, scrollVelocityRef }: BlobProps) {
           uniforms={{
             uTime: { value: 0 },
             uDistort: { value: 0.35 },
-            uColorCyan: { value: new THREE.Color("#22d3ee") },
-            uColorPurple: { value: new THREE.Color("#7c3aed") },
-            uColorMagenta: { value: new THREE.Color("#ec4899") },
+            uColorCyan: { value: new THREE.Color(colorCyan) },
+            uColorPurple: { value: new THREE.Color(colorPurple) },
+            uColorMagenta: { value: new THREE.Color(colorMagenta) },
             uLightPos: { value: new THREE.Vector3(5, 5, 5) }
           }}
         />
@@ -456,9 +491,35 @@ export default function CinematicHero() {
             style={{ background: "transparent" }}
           >
             <Suspense fallback={null}>
+              {/* Main Blob */}
               <Blob
+                index={0}
                 scrollProgressRef={scrollProgressRef}
                 scrollVelocityRef={scrollVelocityRef}
+                colorCyan="#22d3ee"
+                colorPurple="#7c3aed"
+                colorMagenta="#ec4899"
+                distortSpeed={1.2}
+              />
+              {/* Left-to-Right Sweeping Blob */}
+              <Blob
+                index={1}
+                scrollProgressRef={scrollProgressRef}
+                scrollVelocityRef={scrollVelocityRef}
+                colorCyan="#06b6d4"
+                colorPurple="#db2777"
+                colorMagenta="#38bdf8"
+                distortSpeed={1.8}
+              />
+              {/* Right-to-Left Sweeping Blob */}
+              <Blob
+                index={2}
+                scrollProgressRef={scrollProgressRef}
+                scrollVelocityRef={scrollVelocityRef}
+                colorCyan="#a855f7"
+                colorPurple="#4f46e5"
+                colorMagenta="#e11d48"
+                distortSpeed={0.9}
               />
             </Suspense>
           </Canvas>
