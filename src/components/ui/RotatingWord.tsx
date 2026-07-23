@@ -29,7 +29,7 @@ export default function RotatingWord() {
           animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
           exit={{ opacity: 0, filter: "blur(12px)", y: -12 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute left-1/2 -translate-x-1/2 bg-clip-text text-transparent bg-gradient-to-r from-[#35d0ff] to-[#8b7bff] font-extrabold"
+          className="absolute left-1/2 -translate-x-1/2 text-[#D62531] font-extrabold"
         >
           {WORDS[index]}
         </motion.span>
