@@ -44,13 +44,13 @@ export default function WhiteTransition() {
           id: "key-facts-pin",
           trigger: container,
           start: "top top",
-          end: "+=250%", // Increased from +=100% to +=250% to make the scroll require extra effort
+          end: "+=450%", // Increased from +=250% to +=450% for extreme scroll effort
           pin: true,
           pinSpacing: true,
-          scrub: 2.2, // Added 2.2s smooth lag for a heavy, ultra-fluid catching-up effect
+          scrub: 3.5, // Increased from 2.2s to 3.5s for a heavy, slow, and dragging fluid feel
           snap: {
             snapTo: [0.0, 0.227, 1.0], // Snap to start, just before bar1 rises, or end
-            duration: { min: 0.3, max: 0.8 },
+            duration: { min: 0.4, max: 1.0 },
             delay: 0.05,
             ease: "power2.out"
           },
@@ -97,10 +97,9 @@ export default function WhiteTransition() {
       id="key-facts-section"
       data-theme-section="white"
       className="relative w-full h-screen overflow-hidden bg-transparent z-20"
-      // Pull this section up so it pins while the last lines of the
-      // scroll-reveal text are still on screen — the bars then rise from
-      // the bottom over the text instead of after a blank gap.
-      style={{ marginTop: "-45vh" }}
+      // Pull this section up so it pins exactly when the last lines of the
+      // scroll-reveal text just touch the top of the viewport.
+      style={{ marginTop: "-32vh" }}
     >
       <div className="absolute inset-0 pointer-events-none z-10" style={{ perspective: "800px" }}>
         <div
