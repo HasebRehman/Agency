@@ -124,9 +124,7 @@ function AgencyVisual({ isLoaded, scrollProgressRef, scrollVelocityRef }: Visual
   const scrollRotOcta = useRef(new THREE.Vector2(0, 0));
   const scrollRotSmallKnot = useRef(new THREE.Vector2(0, 0));
 
-  // ─── Loader Transition Modifiers [NEW] ───
-  // introProgress goes from 0 to 1 for elastic scale-up burst
-  // introSpin goes from 10.0 to 1.0 to decelerate a rapid turbine-like starting spin
+  // Loader Transition Modifiers
   const introProgress = useRef(0);
   const introSpin = useRef(10.0);
   const isInitialized = useRef(false);
@@ -289,7 +287,6 @@ function AgencyVisual({ isLoaded, scrollProgressRef, scrollVelocityRef }: Visual
     scrollRotSmallKnot.current.x = THREE.MathUtils.lerp(scrollRotSmallKnot.current.x, targetSmallKnotRotX, lerpSpeed);
     scrollRotSmallKnot.current.y = THREE.MathUtils.lerp(scrollRotSmallKnot.current.y, targetSmallKnotRotY, lerpSpeed);
 
-    // Update automatic base rotation - multiplied by the spin decelerator (introSpin)
     autoRotRef.current.x += dt * 0.15 * introSpin.current;
     autoRotRef.current.y += dt * 0.20 * introSpin.current;
     autoRotRef.current.z += dt * 0.10 * introSpin.current;
@@ -465,7 +462,6 @@ function FloatingBalls() {
 
   const viewport = useThree((state) => state.viewport);
 
-  // Initialize random speed, color, scale, and start positions for 3D balls
   const ballsData = useRef(
     Array.from({ length: count }, () => {
       const colors = ["#22d3ee", "#7c3aed", "#ec4899", "#ffffff"];
@@ -485,7 +481,6 @@ function FloatingBalls() {
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.1);
 
-    // Subtle pointer parallax steering
     const mouseX = state.pointer.x * viewport.width * 0.12;
     const mouseY = state.pointer.y * viewport.height * 0.12;
     if (groupRef.current) {
@@ -493,14 +488,12 @@ function FloatingBalls() {
       groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -mouseY, 2.0 * dt);
     }
 
-    // Move each 3D sphere forward along Z axis
     meshRefs.current.forEach((mesh, i) => {
       if (!mesh) return;
       const data = ballsData.current[i];
 
       data.pos.z += dt * data.speed;
 
-      // Recycle if it goes past camera viewport depth
       if (data.pos.z > 2.0) {
         data.pos.z = -10.0;
         data.pos.x = (Math.random() - 0.5) * viewport.width * 2.5;
@@ -623,29 +616,45 @@ export default function CinematicHero() {
         },
       });
 
-      // Fade out hero content during scroll
-      gsap.to("#hero-content", {
-        scrollTrigger: {
-          trigger: "#hero-scroll-container",
-          start: "top top",
-          end: "40% top",
-          scrub: true,
+      // ─── FADE OUT HERO CONTENT DURING SCROLL (FIXED STATE REVERSION) ───
+      // We use fromTo with immediateRender: false so GSAP does not capture the initial state
+      // during the delayed entrance transition, ensuring it correctly returns to opacity 1 when scrolling up.
+      gsap.fromTo("#hero-content", 
+        {
+          opacity: 1,
+          y: 0
         },
-        opacity: 0,
-        y: -60,
-      });
+        {
+          opacity: 0,
+          y: -60,
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: "#hero-scroll-container",
+            start: "top top",
+            end: "40% top",
+            scrub: true,
+          }
+        }
+      );
 
       // Fade out scroll indicator
-      gsap.to("#hero-scroll-indicator", {
-        scrollTrigger: {
-          trigger: "#hero-scroll-container",
-          start: "top top",
-          end: "15% top",
-          scrub: true,
+      gsap.fromTo("#hero-scroll-indicator", 
+        {
+          opacity: 1,
+          y: 0
         },
-        opacity: 0,
-        y: 30,
-      });
+        {
+          opacity: 0,
+          y: 30,
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: "#hero-scroll-container",
+            start: "top top",
+            end: "15% top",
+            scrub: true,
+          }
+        }
+      );
 
       // Section 3 white panel transition
       gsap.fromTo(
