@@ -46,43 +46,45 @@ export default function WhiteTransition() {
           start: "top top",
           end: "+=100%",
           pin: true,
-          // Parent <main> is display:flex, which makes GSAP auto-disable
-          // pinSpacing — that collapses the scroll distance reserved for
-          // this pin and breaks the position math of every section below.
           pinSpacing: true,
           scrub: true,
+          snap: {
+            snapTo: [0.0, 0.227, 1.0], // Snap to start, just before bar1 rises, or end
+            duration: { min: 0.2, max: 0.6 },
+            delay: 0.05,
+            ease: "power2.out"
+          },
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
       });
 
-      // Shifted all timeline positions forward by 0.12s so that the animation starts at exactly 0.0s.
-      // This ensures all bars remain at scaleY: 0 (completely invisible) before the section pins.
-      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.0);
-      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.05);
-      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.15);
+      // Introduce a 0.25s dead scroll zone (approx 22.7% of trigger distance) at the start
+      // where the screen stays locked on Section 2's completed text, creating a clean "scroll stop".
+      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.25);
+      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.30);
+      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.40);
 
-      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.10);
-      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.15);
-      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.25);
+      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.35);
+      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.40);
+      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.50);
 
-      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.20);
-      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.25);
-      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.35);
+      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.45);
+      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.50);
+      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.60);
 
-      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.30);
-      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.35);
-      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.45);
+      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.55);
+      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.60);
+      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.70);
 
-      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.40);
-      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.45);
-      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.55);
+      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.65);
+      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.70);
+      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.80);
 
-      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.65);
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.90);
 
-      // Hold the finished state for the remaining scroll distance so the
-      // key facts content stays readable before the pin releases.
-      tl.to({}, { duration: 0.2 }, 0.65);
+      // Hold the finished state for the remaining scroll distance
+      tl.to({}, { duration: 0.2 }, 0.90);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
