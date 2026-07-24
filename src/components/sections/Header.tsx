@@ -166,7 +166,7 @@ export default function Header() {
                   <a
                     key={link.name}
                     href={link.href}
-                    className={`transition-colors duration-300 text-[0.88rem] font-sans font-medium no-underline ${
+                    className={`transition-colors duration-300 text-[15px] font-sans font-medium no-underline ${
                       isLightBg
                         ? "text-black hover:text-[#4a5568]"
                         : "text-[#8b96ac] hover:text-[#eaf1fb]"

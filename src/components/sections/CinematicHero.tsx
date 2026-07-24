@@ -1,155 +1,683 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo, Suspense } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import PremiumLoader from "./PremiumLoader";
 
-/* ─── Constants ─── */
-const TOTAL_FRAMES = 240;
-const FOLDER_NAME = "frame_img";
-const FILE_PREFIX = "ezgif-frame-";
+// ─── Custom Iridescent Shader for Torus Knot ───
+const KnotShader = {
+  vertexShader: `
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    varying vec3 vViewPosition;
 
-function getFrameUrl(index: number): string {
-  const padded = String(index).padStart(3, "0");
-  return `/animated_img/${FOLDER_NAME}/${FILE_PREFIX}${padded}.png`;
+    void main() {
+      vNormal = normalize(normalMatrix * normal);
+      vPosition = position;
+      
+      vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+      vViewPosition = -mvPosition.xyz;
+      
+      gl_Position = projectionMatrix * mvPosition;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColorCyan;
+    uniform vec3 uColorPurple;
+    uniform vec3 uColorMagenta;
+    uniform vec3 uLightPos;
+    uniform float uTime;
+    
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+    varying vec3 vViewPosition;
+
+    void main() {
+      vec3 normal = normalize(vNormal);
+      vec3 viewDir = normalize(vViewPosition);
+      
+      // 1. Fresnel term for iridescent rim glow
+      float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.5);
+      
+      // 2. Diffuse shading from light source
+      vec3 lightDir = normalize(uLightPos - vPosition);
+      float diffuse = max(dot(normal, lightDir), 0.0);
+      
+      // 3. Dynamic color blending
+      // Creates a moving wave across coordinates to animate color gradients along the knot
+      float flow = sin(vPosition.x * 2.0 + vPosition.y * 2.0 + uTime * 1.2) * 0.5 + 0.5;
+      vec3 baseMix = mix(uColorPurple, uColorCyan, flow);
+      
+      // Blend magenta highlights on the edges
+      vec3 finalBase = mix(baseMix, uColorMagenta, fresnel * 0.5);
+      
+      // 4. Combine base color with diffuse shading
+      vec3 litColor = finalBase * (diffuse * 0.85 + 0.3);
+      
+      // 5. Add iridescent Fresnel rim glow
+      vec3 rimColor = mix(uColorCyan, uColorMagenta, fresnel);
+      vec3 finalColor = mix(litColor, rimColor, fresnel * 0.85);
+      
+      // 6. Specular highlights for polished glass/chrome finish
+      vec3 halfDir = normalize(lightDir + viewDir);
+      float spec = pow(max(dot(normal, halfDir), 0.0), 64.0);
+      finalColor += vec3(1.0) * spec * 0.7;
+
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `
+};
+
+// ─── Nested Planetary/Gyro Tech Visual Assembly ───
+interface VisualProps {
+  isLoaded: boolean;
+  scrollProgressRef: React.RefObject<number>;
+  scrollVelocityRef: React.RefObject<number>;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   CINEMATIC HERO — Scroll-Controlled Frame Sequence Animation
-   ══════════════════════════════════════════════════════════════ */
-export default function CinematicHero() {
-  /* ─── Refs ─── */
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cacheRef = useRef<Map<number, HTMLImageElement>>(new Map());
-  const loadedFramesRef = useRef<Set<number>>(new Set());
-  const inFlightRef = useRef<Set<number>>(new Set());
+function AgencyVisual({ isLoaded, scrollProgressRef, scrollVelocityRef }: VisualProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const knotRef = useRef<THREE.Mesh>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const gridRef = useRef<THREE.Mesh>(null);
+  const coreRef = useRef<THREE.Mesh>(null);
+  const octaRef = useRef<THREE.Mesh>(null);
+  const smallKnotRef = useRef<THREE.Mesh>(null);
+  const satelliteRef = useRef<THREE.Mesh>(null);
   
-  const targetFrameIndexRef = useRef<number>(1);
-  const lerpedFrameIndexRef = useRef<number>(1);
-  const lastDrawnFrameRef = useRef<number>(-1);
+  const knotMatRef = useRef<THREE.ShaderMaterial>(null);
+  const smallKnotMatRef = useRef<THREE.ShaderMaterial>(null);
 
-  /* ─── State ─── */
+  const viewport = useThree((state) => state.viewport);
+  const size = useThree((state) => state.size);
+  const isMobile = size.width < 768;
+
+  // Accumulators for automatic rotation (Layer 1)
+  const autoRotRef = useRef({ x: 0, y: 0, z: 0 });
+
+  // Current values for smooth interpolation (Layer 3 - Ultra Smooth Damping)
+  const currentPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentScale = useRef(new THREE.Vector3(0.01, 0.01, 0.01));
+
+  // Individual components' local positions and scales for deconstructed scroll movement
+  const currentGridPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentGridScale = useRef(new THREE.Vector3(1, 1, 1));
+
+  const currentRingPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentRingScale = useRef(new THREE.Vector3(1, 1, 1));
+
+  const currentKnotPos = useRef(new THREE.Vector3(0, 0, 0));
+  const currentCorePos = useRef(new THREE.Vector3(0, 0, 0));
+
+  // Auxiliary elements' local positions
+  const currentOctaPos = useRef(new THREE.Vector3(-0.8, 0.5, -0.4));
+  const currentSmallKnotPos = useRef(new THREE.Vector3(0.9, -0.5, -0.5));
+  const currentSatellitePos = useRef(new THREE.Vector3(-0.5, -0.6, -0.3));
+
+  // Smooth lerp accumulators for scroll-driven rotations (Direction & Spin changes)
+  const scrollRotKnot = useRef(new THREE.Vector3(0, 0, 0));
+  const scrollRotRing = useRef(new THREE.Vector2(0, 0));
+  const scrollRotGrid = useRef(0);
+  const scrollRotOcta = useRef(new THREE.Vector2(0, 0));
+  const scrollRotSmallKnot = useRef(new THREE.Vector2(0, 0));
+
+  // Loader Transition Modifiers
+  const introProgress = useRef(0);
+  const introSpin = useRef(10.0);
+  const isInitialized = useRef(false);
+
+  useEffect(() => {
+    if (isLoaded) {
+      // Animate the scale with a gorgeous spring-elastic ease
+      gsap.to(introProgress, {
+        current: 1.0,
+        duration: 2.2,
+        ease: "elastic.out(1.0, 0.75)"
+      });
+      // Decelerate the starting spin multiplier
+      gsap.to(introSpin, {
+        current: 1.0,
+        duration: 2.5,
+        ease: "power2.out"
+      });
+    }
+  }, [isLoaded]);
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.1);
+
+    const progress = scrollProgressRef.current ?? 0;
+    const rawVelocity = scrollVelocityRef.current ?? 0;
+
+    // Normalize velocity (pixels/second to range [-1.5, 1.5])
+    const normalizedVelocity = Math.max(-1.5, Math.min(1.5, rawVelocity / 1500));
+
+    let targetX = 0;
+    let targetY = 0;
+    let targetZ = 0;
+    let targetS = 1.0;
+
+    const curveOffset = Math.sin(progress * Math.PI);
+
+    if (isMobile) {
+      targetX = 0;
+      targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.08, progress);
+      targetZ = THREE.MathUtils.lerp(0.0, -0.5, progress);
+      targetS = viewport.height * 0.28;
+    } else {
+      targetX = curveOffset * viewport.width * 0.04;
+      targetY = THREE.MathUtils.lerp(-viewport.height * 0.05, viewport.height * 0.04, progress) - curveOffset * viewport.height * 0.06;
+      targetZ = THREE.MathUtils.lerp(0.0, -0.5, progress) - curveOffset * 2.0;
+      targetS = viewport.height * 0.42;
+    }
+
+    // Multiply target scale by the elastic intro progress
+    targetS = targetS * introProgress.current;
+
+    if (!isInitialized.current && targetS > 0.01) {
+      currentPos.current.set(targetX, targetY, targetZ);
+      currentScale.current.set(targetS, targetS, targetS);
+      isInitialized.current = true;
+    }
+
+    const lerpSpeed = 2.2 * dt;
+    currentPos.current.x = THREE.MathUtils.lerp(currentPos.current.x, targetX, lerpSpeed);
+    currentPos.current.y = THREE.MathUtils.lerp(currentPos.current.y, targetY, lerpSpeed);
+    currentPos.current.z = THREE.MathUtils.lerp(currentPos.current.z, targetZ, lerpSpeed);
+
+    const targetScaleVec = new THREE.Vector3(targetS, targetS, targetS);
+    currentScale.current.lerp(targetScaleVec, lerpSpeed);
+
+    // Grid local target values (expands and flies top-right)
+    const targetGridX = progress * 0.7;
+    const targetGridY = progress * 0.4;
+    const targetGridZ = progress * -0.5;
+    const targetGridS = 1.0 + progress * 0.25;
+
+    currentGridPos.current.x = THREE.MathUtils.lerp(currentGridPos.current.x, targetGridX, lerpSpeed);
+    currentGridPos.current.y = THREE.MathUtils.lerp(currentGridPos.current.y, targetGridY, lerpSpeed);
+    currentGridPos.current.z = THREE.MathUtils.lerp(currentGridPos.current.z, targetGridZ, lerpSpeed);
+    currentGridScale.current.set(targetGridS, targetGridS, targetGridS);
+
+    // Gyro Ring local target values (drifts bottom-left and scales up)
+    const targetRingX = progress * -0.5;
+    const targetRingY = progress * -0.7;
+    const targetRingZ = progress * 0.3;
+    const targetRingS = 1.0 + progress * 0.15;
+
+    currentRingPos.current.x = THREE.MathUtils.lerp(currentRingPos.current.x, targetRingX, lerpSpeed);
+    currentRingPos.current.y = THREE.MathUtils.lerp(currentRingPos.current.y, targetRingY, lerpSpeed);
+    currentRingPos.current.z = THREE.MathUtils.lerp(currentRingPos.current.z, targetRingZ, lerpSpeed);
+    currentRingScale.current.set(targetRingS, targetRingS, targetRingS);
+
+    // Central Knot local target values
+    const targetKnotX = progress * -0.15;
+    const targetKnotY = progress * 0.1;
+    const targetKnotZ = progress * 0.15;
+
+    currentKnotPos.current.x = THREE.MathUtils.lerp(currentKnotPos.current.x, targetKnotX, lerpSpeed);
+    currentKnotPos.current.y = THREE.MathUtils.lerp(currentKnotPos.current.y, targetKnotY, lerpSpeed);
+    currentKnotPos.current.z = THREE.MathUtils.lerp(currentKnotPos.current.z, targetKnotZ, lerpSpeed);
+
+    // Core local target values
+    const targetCoreX = progress * 0.25;
+    const targetCoreY = progress * -0.25;
+    const targetCoreZ = progress * -0.25;
+
+    currentCorePos.current.x = THREE.MathUtils.lerp(currentCorePos.current.x, targetCoreX, lerpSpeed);
+    currentCorePos.current.y = THREE.MathUtils.lerp(currentCorePos.current.y, targetCoreY, lerpSpeed);
+    currentCorePos.current.z = THREE.MathUtils.lerp(currentCorePos.current.z, targetCoreZ, lerpSpeed);
+
+    // Auxiliary elements local target values
+    const targetOctaX = THREE.MathUtils.lerp(-0.8, 0.8, progress);
+    const targetOctaY = THREE.MathUtils.lerp(0.5, -0.6, progress);
+    const targetOctaZ = THREE.MathUtils.lerp(-0.4, -1.2, progress);
+
+    currentOctaPos.current.x = THREE.MathUtils.lerp(currentOctaPos.current.x, targetOctaX, lerpSpeed);
+    currentOctaPos.current.y = THREE.MathUtils.lerp(currentOctaPos.current.y, targetOctaY, lerpSpeed);
+    currentOctaPos.current.z = THREE.MathUtils.lerp(currentOctaPos.current.z, targetOctaZ, lerpSpeed);
+
+    const targetSmallKnotX = THREE.MathUtils.lerp(0.9, -0.9, progress);
+    const targetSmallKnotY = THREE.MathUtils.lerp(-0.5, 0.5, progress);
+    const targetSmallKnotZ = THREE.MathUtils.lerp(-0.5, -1.0, progress);
+
+    currentSmallKnotPos.current.x = THREE.MathUtils.lerp(currentSmallKnotPos.current.x, targetSmallKnotX, lerpSpeed);
+    currentSmallKnotPos.current.y = THREE.MathUtils.lerp(currentSmallKnotPos.current.y, targetSmallKnotY, lerpSpeed);
+    currentSmallKnotPos.current.z = THREE.MathUtils.lerp(currentSmallKnotPos.current.z, targetSmallKnotZ, lerpSpeed);
+
+    const targetSatelliteX = THREE.MathUtils.lerp(-0.5, 0.6, progress);
+    const targetSatelliteY = THREE.MathUtils.lerp(-0.6, 0.7, progress);
+    const targetSatelliteZ = THREE.MathUtils.lerp(-0.3, -0.8, progress);
+
+    currentSatellitePos.current.x = THREE.MathUtils.lerp(currentSatellitePos.current.x, targetSatelliteX, lerpSpeed);
+    currentSatellitePos.current.y = THREE.MathUtils.lerp(currentSatellitePos.current.y, targetSatelliteY, lerpSpeed);
+    currentSatellitePos.current.z = THREE.MathUtils.lerp(currentSatellitePos.current.z, targetSatelliteZ, lerpSpeed);
+
+    // ─── SCROLL-DRIVEN ROTATIONS ───
+    const targetKnotRotX = progress * Math.PI * 1.2;
+    const targetKnotRotY = progress * -Math.PI * 1.5;
+    const targetKnotRotZ = progress * Math.PI * 0.8;
+
+    const targetRingRotX = progress * -Math.PI * 0.5;
+    const targetRingRotY = progress * Math.PI * 2.0;
+
+    const targetGridRotY = progress * -Math.PI * 1.0;
+
+    const targetOctaRotX = progress * Math.PI * 1.5;
+    const targetOctaRotY = progress * -Math.PI * 1.0;
+
+    const targetSmallKnotRotX = progress * -Math.PI * 2.0;
+    const targetSmallKnotRotY = progress * Math.PI * 1.5;
+
+    scrollRotKnot.current.x = THREE.MathUtils.lerp(scrollRotKnot.current.x, targetKnotRotX, lerpSpeed);
+    scrollRotKnot.current.y = THREE.MathUtils.lerp(scrollRotKnot.current.y, targetKnotRotY, lerpSpeed);
+    scrollRotKnot.current.z = THREE.MathUtils.lerp(scrollRotKnot.current.z, targetKnotRotZ, lerpSpeed);
+
+    scrollRotRing.current.x = THREE.MathUtils.lerp(scrollRotRing.current.x, targetRingRotX, lerpSpeed);
+    scrollRotRing.current.y = THREE.MathUtils.lerp(scrollRotRing.current.y, targetRingRotY, lerpSpeed);
+
+    scrollRotGrid.current = THREE.MathUtils.lerp(scrollRotGrid.current, targetGridRotY, lerpSpeed);
+
+    scrollRotOcta.current.x = THREE.MathUtils.lerp(scrollRotOcta.current.x, targetOctaRotX, lerpSpeed);
+    scrollRotOcta.current.y = THREE.MathUtils.lerp(scrollRotOcta.current.y, targetOctaRotY, lerpSpeed);
+
+    scrollRotSmallKnot.current.x = THREE.MathUtils.lerp(scrollRotSmallKnot.current.x, targetSmallKnotRotX, lerpSpeed);
+    scrollRotSmallKnot.current.y = THREE.MathUtils.lerp(scrollRotSmallKnot.current.y, targetSmallKnotRotY, lerpSpeed);
+
+    autoRotRef.current.x += dt * 0.15 * introSpin.current;
+    autoRotRef.current.y += dt * 0.20 * introSpin.current;
+    autoRotRef.current.z += dt * 0.10 * introSpin.current;
+
+    const velocityOffsetPositionX = normalizedVelocity * -0.15 * viewport.width * 0.1;
+    const velocityOffsetY = normalizedVelocity * -0.1 * viewport.height * 0.1;
+    const velocityTiltZ = normalizedVelocity * -0.3;
+    const velocityTiltX = Math.abs(normalizedVelocity) * 0.12;
+
+    if (groupRef.current) {
+      groupRef.current.position.set(
+        currentPos.current.x + velocityOffsetPositionX,
+        currentPos.current.y + velocityOffsetY,
+        currentPos.current.z
+      );
+      groupRef.current.scale.copy(currentScale.current);
+    }
+
+    if (knotRef.current) {
+      knotRef.current.rotation.set(
+        autoRotRef.current.x * 0.6 + scrollRotKnot.current.x + velocityTiltX,
+        autoRotRef.current.y * 0.8 + scrollRotKnot.current.y,
+        autoRotRef.current.z * 0.4 + scrollRotKnot.current.z + velocityTiltZ
+      );
+    }
+
+    if (ringRef.current) {
+      const ringVelocitySpin = normalizedVelocity * 3.0;
+      ringRef.current.rotation.set(
+        Math.PI / 4 + scrollRotRing.current.x,
+        autoRotRef.current.y * 1.8 + scrollRotRing.current.y + ringVelocitySpin,
+        autoRotRef.current.x * 0.5
+      );
+    }
+
+    if (gridRef.current) {
+      gridRef.current.rotation.set(
+        -autoRotRef.current.x * 0.3,
+        -autoRotRef.current.y * 0.3 + scrollRotGrid.current,
+        -autoRotRef.current.z * 0.2
+      );
+    }
+
+    if (octaRef.current) {
+      octaRef.current.rotation.set(
+        autoRotRef.current.x * 1.2 + scrollRotOcta.current.x,
+        autoRotRef.current.y * 1.0 + scrollRotOcta.current.y,
+        autoRotRef.current.z * 0.8
+      );
+    }
+
+    if (smallKnotRef.current) {
+      smallKnotRef.current.rotation.set(
+        autoRotRef.current.x * 0.5 + scrollRotSmallKnot.current.x,
+        autoRotRef.current.y * 1.2 + scrollRotSmallKnot.current.y,
+        autoRotRef.current.z * 0.6
+      );
+    }
+
+    if (satelliteRef.current) {
+      satelliteRef.current.rotation.set(
+        autoRotRef.current.x,
+        autoRotRef.current.y,
+        autoRotRef.current.z
+      );
+    }
+
+    if (knotMatRef.current) {
+      knotMatRef.current.uniforms.uTime.value = state.clock.getElapsedTime();
+    }
+    if (smallKnotMatRef.current) {
+      smallKnotMatRef.current.uniforms.uTime.value = state.clock.getElapsedTime() * 0.8;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {/* 1. Technical outer wireframe cage (Cyan) */}
+      <mesh ref={gridRef} position={currentGridPos.current} scale={currentGridScale.current}>
+        <icosahedronGeometry args={[1.5, 2]} />
+        <meshBasicMaterial
+          color="#06b6d4"
+          wireframe
+          transparent
+          opacity={0.15}
+        />
+      </mesh>
+
+      {/* 2. Orbiting Gyro Ring (metallic magenta) */}
+      <mesh ref={ringRef} position={currentRingPos.current} scale={currentRingScale.current}>
+        <torusGeometry args={[1.15, 0.04, 16, 100]} />
+        <meshStandardMaterial
+          color="#ec4899"
+          roughness={0.15}
+          metalness={0.9}
+        />
+      </mesh>
+
+      {/* 3. Central Torus Knot (iridescent glass/chrome) */}
+      <mesh ref={knotRef} position={currentKnotPos.current}>
+        <torusKnotGeometry args={[0.55, 0.18, 150, 16]} />
+        <shaderMaterial
+          ref={knotMatRef}
+          vertexShader={KnotShader.vertexShader}
+          fragmentShader={KnotShader.fragmentShader}
+          uniforms={{
+            uTime: { value: 0 },
+            uColorCyan: { value: new THREE.Color("#22d3ee") },
+            uColorPurple: { value: new THREE.Color("#7c3aed") },
+            uColorMagenta: { value: new THREE.Color("#ec4899") },
+            uLightPos: { value: new THREE.Vector3(5, 5, 5) }
+          }}
+        />
+      </mesh>
+
+      {/* 4. Glowing inner core sphere */}
+      <mesh ref={coreRef} position={currentCorePos.current}>
+        <sphereGeometry args={[0.2, 32, 32]} />
+        <meshBasicMaterial
+          color="#22d3ee"
+        />
+      </mesh>
+
+      {/* 5. Auxiliary Glossy Octahedron */}
+      <mesh ref={octaRef} position={currentOctaPos.current}>
+        <octahedronGeometry args={[0.18, 0]} />
+        <meshStandardMaterial
+          color="#db2777"
+          roughness={0.2}
+          metalness={0.85}
+        />
+      </mesh>
+
+      {/* 6. Auxiliary Small Torus Knot */}
+      <mesh ref={smallKnotRef} position={currentSmallKnotPos.current}>
+        <torusKnotGeometry args={[0.16, 0.04, 64, 8, 3, 4]} />
+        <shaderMaterial
+          ref={smallKnotMatRef}
+          vertexShader={KnotShader.vertexShader}
+          fragmentShader={KnotShader.fragmentShader}
+          uniforms={{
+            uTime: { value: 0 },
+            uColorCyan: { value: new THREE.Color("#38bdf8") },
+            uColorPurple: { value: new THREE.Color("#4f46e5") },
+            uColorMagenta: { value: new THREE.Color("#d946ef") },
+            uLightPos: { value: new THREE.Vector3(5, 5, 5) }
+          }}
+        />
+      </mesh>
+
+      {/* 7. Auxiliary Glass Satellite Sphere */}
+      <mesh ref={satelliteRef} position={currentSatellitePos.current}>
+        <sphereGeometry args={[0.14, 16, 16]} />
+        <meshPhysicalMaterial
+          color="#38bdf8"
+          roughness={0.1}
+          metalness={0.1}
+          transmission={0.9}
+          thickness={0.5}
+          transparent
+          opacity={0.7}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Structured 3D Dot Wave Component ───
+interface StructuredDotWaveProps {
+  opacity: number;
+}
+
+function StructuredDotWave({ opacity }: StructuredDotWaveProps) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  const mouseWorld = useRef(new THREE.Vector3(100, 100, 100)); // Start far away
+  const localMouse = useRef(new THREE.Vector3(0, 0, 0));
+
+  const { size } = useThree();
+  const isMobile = size.width < 768;
+
+  // Grid dimensions: Width is X-axis (columns), Depth is Z-axis (rows)
+  const gridWidth = isMobile ? 50 : 75;
+  const gridDepth = isMobile ? 25 : 32;
+  const count = gridWidth * gridDepth;
+
+  // Positions array for the grid
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3);
+    let i = 0;
+    const spacingX = 0.30;
+    const spacingZ = 0.72;
+    for (let r = 0; r < gridDepth; r++) {
+      for (let c = 0; c < gridWidth; c++) {
+        const x = (c - gridWidth / 2) * spacingX;
+        const z = (r - gridDepth / 2) * spacingZ;
+        arr[i++] = x;
+        arr[i++] = 0; // Height (y) calculated dynamically in vertex shader
+        arr[i++] = z;
+      }
+    }
+    return arr;
+  }, [gridWidth, gridDepth, count]);
+
+  // Points material uniforms
+  const pointsUniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uMouse: { value: new THREE.Vector3(100, 100, 100) },
+    uHoverRadius: { value: isMobile ? 4.0 : 6.0 },
+    uHoverStrength: { value: isMobile ? 1.8 : 2.8 },
+    uColorBase: { value: new THREE.Color("#35d0ff") }, // CureLogics Blue
+    uColorGlow: { value: new THREE.Color("#ffffff") }, // Glow White
+    uOpacity: { value: 0 },
+  }), [isMobile]);
+
+  // Sync opacity uniform with loaded state
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uOpacity.value = opacity;
+    }
+  }, [opacity]);
+
+  useFrame((state) => {
+    const time = state.clock.getElapsedTime();
+    localMouse.current.copy(mouseWorld.current);
+
+    if (pointsRef.current && materialRef.current) {
+      const localP = localMouse.current.clone();
+      pointsRef.current.worldToLocal(localP);
+      materialRef.current.uniforms.uTime.value = time;
+      materialRef.current.uniforms.uMouse.value.copy(localP);
+    }
+  });
+
+  const vertexShader = `
+    uniform float uTime;
+    uniform vec3 uMouse;
+    uniform float uHoverRadius;
+    uniform float uHoverStrength;
+
+    varying float vGlow;
+    varying float vHeight;
+    varying float vLocalX;
+
+    void main() {
+      vec3 pos = position;
+
+      // Slow, gentle flowing wavy formula (flowing data ocean)
+      float wave1 = sin(pos.x * 0.20 + uTime * 0.35) * cos(pos.z * 0.20 + uTime * 0.35) * 1.0;
+      float wave2 = sin(pos.x * 0.08 - uTime * 0.18) * 1.3;
+      float wave3 = cos(pos.z * 0.05 + uTime * 0.22) * 0.8;
+      
+      // Slanted 3D slope for perspective matching Reference Image 2
+      float slopeX = (pos.x * 0.12) * 1.0;
+      float slopeZ = (pos.z * 0.08) * 0.8;
+      
+      float baseHeight = wave1 + wave2 + wave3 + slopeX + slopeZ;
+      pos.y += baseHeight;
+
+      // Localized cursor hover Y-displacement
+      float dist = distance(pos.xz, uMouse.xz);
+      float influence = 0.0;
+      if (dist < uHoverRadius) {
+        // Organic smooth falloff
+        influence = 1.0 - smoothstep(0.0, uHoverRadius, dist);
+      }
+
+      // Height displacement ("curves grow up")
+      pos.y += influence * uHoverStrength;
+
+      vGlow = influence;
+      vHeight = pos.y;
+      vLocalX = position.x;
+
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+
+      // Safe depth-based size attenuation to prevent point size blowout
+      float depth = -mvPosition.z;
+      gl_PointSize = (2.2 + influence * 4.5) * (45.0 / max(1.0, depth));
+    }
+  `;
+
+  const pointsFragmentShader = `
+    uniform vec3 uColorBase;
+    uniform vec3 uColorGlow;
+    uniform float uOpacity;
+
+    varying float vGlow;
+    varying float vHeight;
+    varying float vLocalX;
+
+    void main() {
+      // Shape points into crisp circles
+      vec2 temp = gl_PointCoord - vec2(0.5);
+      float dist = length(temp);
+      if (dist > 0.5) discard;
+
+      // Sharp circle edge feathering for distinct particles
+      float alpha = smoothstep(0.5, 0.25, dist);
+
+      // Height-based blue/cyan brand gradient
+      float normalizedHeight = clamp((vHeight + 2.5) / 5.0, 0.0, 1.0);
+      vec3 heightColor = mix(vec3(0.01, 0.10, 0.48), uColorBase, normalizedHeight);
+
+      // Blend height color with hover glow color
+      vec3 finalColor = mix(heightColor, uColorGlow, vGlow);
+
+      // Add a bright core for hovered particles (lighting up)
+      float core = smoothstep(0.18, 0.0, dist);
+      finalColor = mix(finalColor, vec3(1.0), core * vGlow * 0.85);
+
+      // Left-side fade-out: local X ranges from -11.25 to 11.25.
+      // Fade out completely between -6.5 and -2.0 to clear the text column on the left.
+      float xFade = smoothstep(-6.5, -2.0, vLocalX);
+
+      gl_FragColor = vec4(finalColor, alpha * (0.45 + vGlow * 0.55) * uOpacity * xFade);
+    }
+  `;
+
+  const meshPos: [number, number, number] = isMobile ? [0, -1.8, -4.5] : [2.5, -1.0, -4.5];
+  const meshRot: [number, number, number] = isMobile ? [-0.25, -0.2, 0.05] : [-0.2, -0.4, 0.05];
+
+  return (
+    <group>
+      {/* Invisible raycasting horizontal plane centered at grid level */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -1.5, 0]}
+        onPointerMove={(e) => {
+          mouseWorld.current.copy(e.point);
+        }}
+        onPointerLeave={() => {
+          mouseWorld.current.set(100, 100, 100);
+        }}
+      >
+        <planeGeometry args={[120, 120]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+
+      {/* Glowing Particles Grid */}
+      <points
+        ref={pointsRef}
+        position={meshPos}
+        rotation={meshRot}
+      >
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[positions, 3]}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          ref={materialRef}
+          vertexShader={vertexShader}
+          fragmentShader={pointsFragmentShader}
+          uniforms={pointsUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
+  );
+}
+
+export default function CinematicHero() {
+  const scrollProgressRef = useRef(0);
+  const scrollVelocityRef = useRef(0);
+
+  const [mounted, setMounted] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
 
-  /* ═══════════════════════════════════════
-     1. IMAGE LOADER HELPER
-     ═══════════════════════════════════════ */
-  const loadFrame = (index: number): Promise<void> => {
-    if (loadedFramesRef.current.has(index)) {
-      return Promise.resolve();
-    }
-    if (inFlightRef.current.has(index)) {
-      return Promise.resolve();
-    }
-
-    inFlightRef.current.add(index);
-    
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = getFrameUrl(index);
-      
-      // Asynchronously decode the image to avoid blocking the main thread
-      img.decode()
-        .then(() => {
-          cacheRef.current.set(index, img);
-          loadedFramesRef.current.add(index);
-          inFlightRef.current.delete(index);
-          resolve();
-        })
-        .catch(() => {
-          // Fallback to standard onload for backward compatibility
-          img.onload = () => {
-            cacheRef.current.set(index, img);
-            loadedFramesRef.current.add(index);
-            inFlightRef.current.delete(index);
-            resolve();
-          };
-          img.onerror = () => {
-            inFlightRef.current.delete(index);
-            resolve(); // Resolve to not block queue
-          };
-        });
-    });
-  };
-
-  /* ═══════════════════════════════════════
-     2. PRIORITIZE FRAMES ON SCROLL
-     ═══════════════════════════════════════ */
-  const prioritizeFrames = (centerFrame: number) => {
-    const WINDOW_SIZE = 15; // Load 15 frames ahead and behind
-    const start = Math.max(1, centerFrame - WINDOW_SIZE);
-    const end = Math.min(TOTAL_FRAMES, centerFrame + WINDOW_SIZE);
-    
-    for (let i = start; i <= end; i++) {
-      if (!loadedFramesRef.current.has(i) && !inFlightRef.current.has(i)) {
-        loadFrame(i);
-      }
-    }
-  };
-
-  /* ═══════════════════════════════════════
-     3. BACKGROUND PRELOAD REMAINDER
-     ═══════════════════════════════════════ */
-  const startBackgroundPreload = () => {
-    const remaining: number[] = [];
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
-      if (!loadedFramesRef.current.has(i)) {
-        remaining.push(i);
-      }
-    }
-
-    let index = 0;
-    const loadNextIdle = () => {
-      if (index >= remaining.length) return;
-      
-      const frameToLoad = remaining[index];
-      index++;
-      
-      const scheduler: (cb: () => void) => void =
-        typeof window !== "undefined" && "requestIdleCallback" in window
-          ? (cb) => window.requestIdleCallback(cb)
-          : (cb) => setTimeout(cb, 50);
-        
-      scheduler(() => {
-        loadFrame(frameToLoad).then(() => {
-          loadNextIdle();
-        });
-      });
-    };
-    
-    loadNextIdle();
-  };
-
-  /* ═══════════════════════════════════════
-     4. PRELOAD BASELINE FRAMES (PHASE 1)
-     ═══════════════════════════════════════ */
+  // Trigger loader transition
   useEffect(() => {
-    const BASELINE_INTERVAL = 8;
-    const baselineFrames: number[] = [];
-    for (let i = 1; i <= TOTAL_FRAMES; i += BASELINE_INTERVAL) {
-      baselineFrames.push(i);
-    }
-    if (baselineFrames[baselineFrames.length - 1] !== TOTAL_FRAMES) {
-      baselineFrames.push(TOTAL_FRAMES);
-    }
+    setMounted(true);
 
-    let loadedCount = 0;
-    const totalBaseline = baselineFrames.length;
-
-    baselineFrames.forEach(async (index) => {
-      await loadFrame(index);
-      loadedCount++;
-      setPreloadProgress(Math.round((loadedCount / totalBaseline) * 100));
-      
-      if (loadedCount === totalBaseline) {
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 10;
+      setPreloadProgress(Math.min(progress, 100));
+      if (progress >= 100) {
+        clearInterval(interval);
         setAssetsReady(true);
-        // Start background preloading for high-framerate scroll
-        startBackgroundPreload();
       }
-    });
+    }, 60);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleTransitionComplete = () => {
@@ -157,140 +685,49 @@ export default function CinematicHero() {
     document.body.classList.add("show-nav");
   };
 
-  /* ═══════════════════════════════════════
-     5. FIT IMAGE COVER MATH
-     ═══════════════════════════════════════ */
-  const drawImageProp = (
-    ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
-    w: number,
-    h: number
-  ) => {
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
-    const scale = Math.max(w / iw, h / ih);
-    const nw = iw * scale;
-    const nh = ih * scale;
-    const cx = (w - nw) * 0.5;
-    const cy = (h - nh) * 0.5;
-    ctx.drawImage(img, cx, cy, nw, nh);
-  };
-
-  /* ═══════════════════════════════════════
-     6. NEAREST-NEIGHBOR RESOLVING
-     ═══════════════════════════════════════ */
-  const findNearestLoadedFrame = (index: number): HTMLImageElement | undefined => {
-    let minDiff = Infinity;
-    let nearestIndex = -1;
-    
-    for (const loadedIndex of loadedFramesRef.current) {
-      const diff = Math.abs(loadedIndex - index);
-      if (diff < minDiff) {
-        minDiff = diff;
-        nearestIndex = loadedIndex;
-      }
-    }
-    
-    if (nearestIndex !== -1) {
-      return cacheRef.current.get(nearestIndex);
-    }
-    
-    return undefined;
-  };
-
-  /* ═══════════════════════════════════════
-     7. DRAW FRAME ON CANVAS
-     ═══════════════════════════════════════ */
-  const drawFrame = (index: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let img = cacheRef.current.get(index);
-    
-    if (!img || !loadedFramesRef.current.has(index)) {
-      img = findNearestLoadedFrame(index);
-    }
-
-    if (img) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawImageProp(ctx, img, canvas.width, canvas.height);
-      lastDrawnFrameRef.current = index;
-    }
-  };
-
-  /* ═══════════════════════════════════════
-     8. CANVAS RESIZE HANDLER
-     ═══════════════════════════════════════ */
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const dpr = window.devicePixelRatio || 1;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      
-      if (isLoaded) {
-        drawFrame(Math.round(lerpedFrameIndexRef.current));
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [isLoaded]);
-
-  /* ═══════════════════════════════════════
-     9. FRAME INTERPOLATION LOOP (RAF)
-     ═══════════════════════════════════════ */
-  useEffect(() => {
-    if (!isLoaded) return;
-    
-    let animationFrameId: number;
-    
-    const render = () => {
-      const target = targetFrameIndexRef.current;
-      const current = lerpedFrameIndexRef.current;
-      
-      const diff = target - current;
-      if (Math.abs(diff) > 0.01) {
-        lerpedFrameIndexRef.current = current + diff * 0.12; // buttery smooth lerp
-      } else {
-        lerpedFrameIndexRef.current = target;
-      }
-      
-      const activeFrame = Math.round(lerpedFrameIndexRef.current);
-      
-      if (activeFrame !== lastDrawnFrameRef.current) {
-        drawFrame(activeFrame);
-      }
-      
-      animationFrameId = requestAnimationFrame(render);
-    };
-    
-    animationFrameId = requestAnimationFrame(render);
-    
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [isLoaded]);
-
-  /* ═══════════════════════════════════════
-     10. GSAP SCROLLTRIGGER PIN & SYNC
-     ═══════════════════════════════════════ */
+  // GSAP ScrollTrigger
   useEffect(() => {
     if (!isLoaded) return;
 
     const ctx = gsap.context(() => {
-      // Pin Section 1 (Hero) for 100vh of scroll distance
+      // ─── STAGGERED HERO CONTENT ENTRANCE ANIMATION ───
+      const tl = gsap.timeline();
+      
+      // Make sure the main hero-container-wrapper block container is active
+      gsap.set("#hero-container-wrapper", { opacity: 1 });
+      
+      // Reveal Title Line 1 (masked split skew slide up)
+      tl.fromTo(
+        "#hero-title-line-1",
+        { y: "115%", rotate: 2.5, skewY: 3, filter: "blur(8px)" },
+        { y: "0%", rotate: 0, skewY: 0, filter: "blur(0px)", duration: 1.4, ease: "power4.out" }
+      );
+
+      // Reveal Title Line 2 (masked split skew slide up)
+      tl.fromTo(
+        "#hero-title-line-2",
+        { y: "115%", rotate: 2.5, skewY: 3, filter: "blur(8px)" },
+        { y: "0%", rotate: 0, skewY: 0, filter: "blur(0px)", duration: 1.4, ease: "power4.out" },
+        "-=1.15"
+      );
+      
+      // Reveal Subheading description with a smooth blur fade-in and slide-up (overlapping)
+      tl.fromTo(
+        "#hero-subheading",
+        { opacity: 0, y: 35, filter: "blur(10px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.3, ease: "power3.out" },
+        "-=1.0"
+      );
+      
+      // Reveal Partner Logos row with smooth fade-in and slide-up (overlapping)
+      tl.fromTo(
+        "#hero-logos",
+        { opacity: 0, y: 25 },
+        { opacity: 1, y: 0, duration: 1.2, ease: "power3.out" },
+        "-=0.9"
+      );
+
+      // Pin Section 1 (Hero) for 100vh
       ScrollTrigger.create({
         trigger: "#hero-section",
         pin: true,
@@ -299,48 +736,42 @@ export default function CinematicHero() {
         pinSpacing: true,
       });
 
-      // Map scroll progress of container (Hero pinned + About) to frame indexes
+      // Track scroll progress and velocity of the scroll container
       ScrollTrigger.create({
         trigger: "#hero-scroll-container",
         start: "top top",
         end: "bottom bottom",
         scrub: true,
         onUpdate: (self) => {
-          const p = self.progress;
-          // Map 0-1 progress to 1-TOTAL_FRAMES
-          const targetFrame = Math.round(1 + p * (TOTAL_FRAMES - 1));
-          targetFrameIndexRef.current = targetFrame;
-          
-          prioritizeFrames(targetFrame);
+          scrollProgressRef.current = self.progress;
+          scrollVelocityRef.current = self.getVelocity();
         },
       });
 
-      // Fade out hero content during the first half of pinning
-      gsap.to("#hero-content", {
-        scrollTrigger: {
-          trigger: "#hero-scroll-container",
-          start: "top top",
-          end: "40% top",
-          scrub: true,
+      // ─── FADE OUT HERO CONTAINER WRAPPER & LOGOS DURING SCROLL (FIXED STATE REVERSION) ───
+      // We use fromTo with immediateRender: false so GSAP does not capture the initial state
+      // during the delayed entrance transition, ensuring it correctly returns to opacity 1 when scrolling up.
+      gsap.fromTo("#hero-container-wrapper", 
+        {
+          opacity: 1,
+          y: 0
         },
-        opacity: 0,
-        y: -60,
-      });
+        {
+          opacity: 0,
+          y: -80,
+          immediateRender: false,
+          scrollTrigger: {
+            trigger: "#hero-scroll-container",
+            start: "top top",
+            end: "40% top",
+            scrub: true,
+          }
+        }
+      );
 
-      // Fade out scroll indicator early
-      gsap.to("#hero-scroll-indicator", {
-        scrollTrigger: {
-          trigger: "#hero-scroll-container",
-          start: "top top",
-          end: "15% top",
-          scrub: true,
-        },
-        opacity: 0,
-        y: 30,
-      });
-
-      // Premium card expansion and reveal for Section 3 white panel
-      gsap.fromTo("#white-panel",
+      // Section 3 white panel transition
+      gsap.fromTo(
+        "#white-panel",
         {
           y: 160,
           scale: 0.98,
@@ -360,17 +791,11 @@ export default function CinematicHero() {
             start: "top bottom",
             end: "top 10%",
             scrub: true,
-          }
+          },
         }
       );
     });
 
-    // Refresh ScrollTrigger calculations after pinning is initialized.
-    // IMPORTANT: this pin is created LATE (after the loader finishes), so
-    // ScrollTrigger's internal list is out of document order. Without
-    // sort(), the hero pin's spacer offset is never applied to the
-    // sections below it (key facts / services), which shifts all their
-    // start/end positions up by one viewport and makes them fire early.
     const refreshTimer = setTimeout(() => {
       ScrollTrigger.sort();
       ScrollTrigger.refresh();
@@ -382,9 +807,6 @@ export default function CinematicHero() {
     };
   }, [isLoaded]);
 
-  /* ═══════════════════════════════════════
-     RENDER LOADER + CANVAS
-     ═══════════════════════════════════════ */
   return (
     <>
       {/* Premium Loader Overlay */}
@@ -395,11 +817,34 @@ export default function CinematicHero() {
         />
       )}
 
-      {/* Main Canvas Container */}
-      <div className="fixed inset-0 w-screen h-screen z-0 bg-black overflow-hidden pointer-events-none">
-        <canvas ref={canvasRef} className="w-full h-full block" />
-      </div>
+      {/* R3F Canvas Container - placed behind flow elements at z-[2] with bg-transparent */}
+      {mounted && (
+        <div className="fixed inset-0 w-screen h-screen z-[2] bg-transparent overflow-hidden pointer-events-none">
+          <Canvas
+            camera={{ position: [0, 0, 5], fov: 45 }}
+            gl={{ antialias: true, alpha: true }}
+            style={{ background: "transparent" }}
+          >
+            <Suspense fallback={null}>
+              <ambientLight intensity={0.6} color="#051025" />
+              
+              {/* Key blue light */}
+              <pointLight position={[10, 10, 10]} intensity={2.5} color="#64CEFB" />
+              
+              {/* Soft blue-purple fill light */}
+              <pointLight position={[-10, -10, -10]} intensity={1.0} color="#1E4D91" />
+              
+              {/* Crimson Red rim light from back-left */}
+              <pointLight position={[-6, 4, -6]} intensity={5.0} color="#ff3344" />
+              
+              {/* Ambient white spotlight */}
+              <directionalLight position={[0, 5, 5]} intensity={0.5} color="#ffffff" />
+
+              <StructuredDotWave opacity={isLoaded ? 1 : 0} />
+            </Suspense>
+          </Canvas>
+        </div>
+      )}
     </>
   );
 }
-
