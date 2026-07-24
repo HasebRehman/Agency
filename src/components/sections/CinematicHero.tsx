@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useState, Suspense } from "react";
+import React, { useRef, useEffect, useState, useMemo, Suspense } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -454,74 +454,202 @@ function AgencyVisual({ isLoaded, scrollProgressRef, scrollVelocityRef }: Visual
   );
 }
 
-// ─── Floating 3D Volumetric Balls Component ───
-function FloatingBalls() {
-  const count = 75;
-  const groupRef = useRef<THREE.Group>(null);
-  const meshRefs = useRef<THREE.Mesh[]>([]);
+// ─── Structured 3D Dot Wave Component ───
+interface StructuredDotWaveProps {
+  opacity: number;
+}
 
-  const viewport = useThree((state) => state.viewport);
+function StructuredDotWave({ opacity }: StructuredDotWaveProps) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
 
-  const ballsData = useRef(
-    Array.from({ length: count }, () => {
-      const colors = ["#22d3ee", "#7c3aed", "#ec4899", "#ffffff"];
-      return {
-        speed: 1.0 + Math.random() * 2.0,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        scale: 0.04 + Math.random() * 0.12,
-        pos: new THREE.Vector3(
-          (Math.random() - 0.5) * 12,
-          (Math.random() - 0.5) * 8,
-          -Math.random() * 10
-        )
-      };
-    })
-  );
+  const mouseWorld = useRef(new THREE.Vector3(100, 100, 100)); // Start far away
+  const localMouse = useRef(new THREE.Vector3(0, 0, 0));
 
-  useFrame((state, delta) => {
-    const dt = Math.min(delta, 0.1);
+  const { size } = useThree();
+  const isMobile = size.width < 768;
 
-    const mouseX = state.pointer.x * viewport.width * 0.12;
-    const mouseY = state.pointer.y * viewport.height * 0.12;
-    if (groupRef.current) {
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, -mouseX, 2.0 * dt);
-      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, -mouseY, 2.0 * dt);
-    }
+  // Grid dimensions: Width is X-axis (columns), Depth is Z-axis (rows)
+  const gridWidth = isMobile ? 50 : 75;
+  const gridDepth = isMobile ? 25 : 32;
+  const count = gridWidth * gridDepth;
 
-    meshRefs.current.forEach((mesh, i) => {
-      if (!mesh) return;
-      const data = ballsData.current[i];
-
-      data.pos.z += dt * data.speed;
-
-      if (data.pos.z > 2.0) {
-        data.pos.z = -10.0;
-        data.pos.x = (Math.random() - 0.5) * viewport.width * 2.5;
-        data.pos.y = (Math.random() - 0.5) * viewport.height * 2.5;
+  // Positions array for the grid
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3);
+    let i = 0;
+    const spacingX = 0.30;
+    const spacingZ = 0.72;
+    for (let r = 0; r < gridDepth; r++) {
+      for (let c = 0; c < gridWidth; c++) {
+        const x = (c - gridWidth / 2) * spacingX;
+        const z = (r - gridDepth / 2) * spacingZ;
+        arr[i++] = x;
+        arr[i++] = 0; // Height (y) calculated dynamically in vertex shader
+        arr[i++] = z;
       }
+    }
+    return arr;
+  }, [gridWidth, gridDepth, count]);
 
-      mesh.position.copy(data.pos);
-    });
+  // Points material uniforms
+  const pointsUniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uMouse: { value: new THREE.Vector3(100, 100, 100) },
+    uHoverRadius: { value: isMobile ? 4.0 : 6.0 },
+    uHoverStrength: { value: isMobile ? 1.8 : 2.8 },
+    uColorBase: { value: new THREE.Color("#35d0ff") }, // CureLogics Blue
+    uColorGlow: { value: new THREE.Color("#ffffff") }, // Glow White
+    uOpacity: { value: 0 },
+  }), [isMobile]);
+
+  // Sync opacity uniform with loaded state
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uOpacity.value = opacity;
+    }
+  }, [opacity]);
+
+  useFrame((state) => {
+    const time = state.clock.getElapsedTime();
+    localMouse.current.copy(mouseWorld.current);
+
+    if (pointsRef.current && materialRef.current) {
+      const localP = localMouse.current.clone();
+      pointsRef.current.worldToLocal(localP);
+      materialRef.current.uniforms.uTime.value = time;
+      materialRef.current.uniforms.uMouse.value.copy(localP);
+    }
   });
 
+  const vertexShader = `
+    uniform float uTime;
+    uniform vec3 uMouse;
+    uniform float uHoverRadius;
+    uniform float uHoverStrength;
+
+    varying float vGlow;
+    varying float vHeight;
+    varying float vLocalX;
+
+    void main() {
+      vec3 pos = position;
+
+      // Slow, gentle flowing wavy formula (flowing data ocean)
+      float wave1 = sin(pos.x * 0.20 + uTime * 0.35) * cos(pos.z * 0.20 + uTime * 0.35) * 1.0;
+      float wave2 = sin(pos.x * 0.08 - uTime * 0.18) * 1.3;
+      float wave3 = cos(pos.z * 0.05 + uTime * 0.22) * 0.8;
+      
+      // Slanted 3D slope for perspective matching Reference Image 2
+      float slopeX = (pos.x * 0.12) * 1.0;
+      float slopeZ = (pos.z * 0.08) * 0.8;
+      
+      float baseHeight = wave1 + wave2 + wave3 + slopeX + slopeZ;
+      pos.y += baseHeight;
+
+      // Localized cursor hover Y-displacement
+      float dist = distance(pos.xz, uMouse.xz);
+      float influence = 0.0;
+      if (dist < uHoverRadius) {
+        // Organic smooth falloff
+        influence = 1.0 - smoothstep(0.0, uHoverRadius, dist);
+      }
+
+      // Height displacement ("curves grow up")
+      pos.y += influence * uHoverStrength;
+
+      vGlow = influence;
+      vHeight = pos.y;
+      vLocalX = position.x;
+
+      vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+
+      // Safe depth-based size attenuation to prevent point size blowout
+      float depth = -mvPosition.z;
+      gl_PointSize = (2.2 + influence * 4.5) * (45.0 / max(1.0, depth));
+    }
+  `;
+
+  const pointsFragmentShader = `
+    uniform vec3 uColorBase;
+    uniform vec3 uColorGlow;
+    uniform float uOpacity;
+
+    varying float vGlow;
+    varying float vHeight;
+    varying float vLocalX;
+
+    void main() {
+      // Shape points into crisp circles
+      vec2 temp = gl_PointCoord - vec2(0.5);
+      float dist = length(temp);
+      if (dist > 0.5) discard;
+
+      // Sharp circle edge feathering for distinct particles
+      float alpha = smoothstep(0.5, 0.25, dist);
+
+      // Height-based blue/cyan brand gradient
+      float normalizedHeight = clamp((vHeight + 2.5) / 5.0, 0.0, 1.0);
+      vec3 heightColor = mix(vec3(0.01, 0.10, 0.48), uColorBase, normalizedHeight);
+
+      // Blend height color with hover glow color
+      vec3 finalColor = mix(heightColor, uColorGlow, vGlow);
+
+      // Add a bright core for hovered particles (lighting up)
+      float core = smoothstep(0.18, 0.0, dist);
+      finalColor = mix(finalColor, vec3(1.0), core * vGlow * 0.85);
+
+      // Left-side fade-out: local X ranges from -11.25 to 11.25.
+      // Fade out completely between -6.5 and -2.0 to clear the text column on the left.
+      float xFade = smoothstep(-6.5, -2.0, vLocalX);
+
+      gl_FragColor = vec4(finalColor, alpha * (0.45 + vGlow * 0.55) * uOpacity * xFade);
+    }
+  `;
+
+  const meshPos: [number, number, number] = isMobile ? [0, -1.8, -4.5] : [2.5, -1.0, -4.5];
+  const meshRot: [number, number, number] = isMobile ? [-0.25, -0.2, 0.05] : [-0.2, -0.4, 0.05];
+
   return (
-    <group ref={groupRef}>
-      {ballsData.current.map((data, i) => (
-        <mesh
-          key={i}
-          ref={(el) => {
-            if (el) meshRefs.current[i] = el;
-          }}
-          scale={[data.scale, data.scale, data.scale]}
-        >
-          <sphereGeometry args={[1, 16, 16]} />
-          <meshStandardMaterial
-            color={data.color}
-            roughness={0.2}
-            metalness={0.7}
+    <group>
+      {/* Invisible raycasting horizontal plane centered at grid level */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -1.5, 0]}
+        onPointerMove={(e) => {
+          mouseWorld.current.copy(e.point);
+        }}
+        onPointerLeave={() => {
+          mouseWorld.current.set(100, 100, 100);
+        }}
+      >
+        <planeGeometry args={[120, 120]} />
+        <meshBasicMaterial visible={false} />
+      </mesh>
+
+      {/* Glowing Particles Grid */}
+      <points
+        ref={pointsRef}
+        position={meshPos}
+        rotation={meshRot}
+      >
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[positions, 3]}
           />
-        </mesh>
-      ))}
+        </bufferGeometry>
+        <shaderMaterial
+          ref={materialRef}
+          vertexShader={vertexShader}
+          fragmentShader={pointsFragmentShader}
+          uniforms={pointsUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
     </group>
   );
 }
@@ -562,37 +690,41 @@ export default function CinematicHero() {
     if (!isLoaded) return;
 
     const ctx = gsap.context(() => {
-      // ─── HERO CONTENT ENTRANCE ANIMATION ───
-      gsap.fromTo(
-        "#hero-content",
-        {
-          opacity: 0,
-          y: 80,
-          scale: 0.96
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 1.8,
-          ease: "power4.out",
-          delay: 0.1
-        }
+      // ─── STAGGERED HERO CONTENT ENTRANCE ANIMATION ───
+      const tl = gsap.timeline();
+      
+      // Make sure the main hero-container-wrapper block container is active
+      gsap.set("#hero-container-wrapper", { opacity: 1 });
+      
+      // Reveal Title Line 1 (masked split skew slide up)
+      tl.fromTo(
+        "#hero-title-line-1",
+        { y: "115%", rotate: 2.5, skewY: 3, filter: "blur(8px)" },
+        { y: "0%", rotate: 0, skewY: 0, filter: "blur(0px)", duration: 1.4, ease: "power4.out" }
       );
 
-      gsap.fromTo(
-        "#hero-scroll-indicator",
-        {
-          opacity: 0,
-          y: 40
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1.2,
-          ease: "power3.out",
-          delay: 0.7
-        }
+      // Reveal Title Line 2 (masked split skew slide up)
+      tl.fromTo(
+        "#hero-title-line-2",
+        { y: "115%", rotate: 2.5, skewY: 3, filter: "blur(8px)" },
+        { y: "0%", rotate: 0, skewY: 0, filter: "blur(0px)", duration: 1.4, ease: "power4.out" },
+        "-=1.15"
+      );
+      
+      // Reveal Subheading description with a smooth blur fade-in and slide-up (overlapping)
+      tl.fromTo(
+        "#hero-subheading",
+        { opacity: 0, y: 35, filter: "blur(10px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.3, ease: "power3.out" },
+        "-=1.0"
+      );
+      
+      // Reveal Partner Logos row with smooth fade-in and slide-up (overlapping)
+      tl.fromTo(
+        "#hero-logos",
+        { opacity: 0, y: 25 },
+        { opacity: 1, y: 0, duration: 1.2, ease: "power3.out" },
+        "-=0.9"
       );
 
       // Pin Section 1 (Hero) for 100vh
@@ -616,41 +748,22 @@ export default function CinematicHero() {
         },
       });
 
-      // ─── FADE OUT HERO CONTENT DURING SCROLL (FIXED STATE REVERSION) ───
+      // ─── FADE OUT HERO CONTAINER WRAPPER & LOGOS DURING SCROLL (FIXED STATE REVERSION) ───
       // We use fromTo with immediateRender: false so GSAP does not capture the initial state
       // during the delayed entrance transition, ensuring it correctly returns to opacity 1 when scrolling up.
-      gsap.fromTo("#hero-content", 
+      gsap.fromTo("#hero-container-wrapper", 
         {
           opacity: 1,
           y: 0
         },
         {
           opacity: 0,
-          y: -60,
+          y: -80,
           immediateRender: false,
           scrollTrigger: {
             trigger: "#hero-scroll-container",
             start: "top top",
             end: "40% top",
-            scrub: true,
-          }
-        }
-      );
-
-      // Fade out scroll indicator
-      gsap.fromTo("#hero-scroll-indicator", 
-        {
-          opacity: 1,
-          y: 0
-        },
-        {
-          opacity: 0,
-          y: 30,
-          immediateRender: false,
-          scrollTrigger: {
-            trigger: "#hero-scroll-container",
-            start: "top top",
-            end: "15% top",
             scrub: true,
           }
         }
@@ -727,13 +840,7 @@ export default function CinematicHero() {
               {/* Ambient white spotlight */}
               <directionalLight position={[0, 5, 5]} intensity={0.5} color="#ffffff" />
 
-              <AgencyVisual
-                isLoaded={isLoaded}
-                scrollProgressRef={scrollProgressRef}
-                scrollVelocityRef={scrollVelocityRef}
-              />
-
-              <FloatingBalls />
+              <StructuredDotWave opacity={isLoaded ? 1 : 0} />
             </Suspense>
           </Canvas>
         </div>

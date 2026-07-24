@@ -44,47 +44,41 @@ export default function WhiteTransition() {
           id: "key-facts-pin",
           trigger: container,
           start: "top top",
-          end: "+=450%", // Increased from +=250% to +=450% for extreme scroll effort
+          end: "+=120%",
           pin: true,
           pinSpacing: true,
-          scrub: 3.5, // Increased from 2.2s to 3.5s for a heavy, slow, and dragging fluid feel
-          snap: {
-            snapTo: [0.0, 0.227, 1.0], // Snap to start, just before bar1 rises, or end
-            duration: { min: 0.4, max: 1.0 },
-            delay: 0.05,
-            ease: "power2.out"
-          },
+          scrub: 2,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
       });
 
-      // Introduce a 0.25s dead scroll zone (approx 22.7% of trigger distance) at the start
-      // where the screen stays locked on Section 2's completed text, creating a clean "scroll stop".
-      tl.to(bar1, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.25);
-      tl.to(bar1, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.30);
-      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.40);
+      // White bars rise immediately when trigger starts — no dead zone
+      tl.to(bar1, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.0);
+      tl.to(bar1, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.02);
+      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.10);
 
-      tl.to(bar2, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.35);
-      tl.to(bar2, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.40);
-      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.50);
+      tl.to(bar2, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.10);
+      tl.to(bar2, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.12);
+      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.20);
 
-      tl.to(bar3, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.45);
-      tl.to(bar3, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.50);
-      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.60);
+      tl.to(bar3, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.20);
+      tl.to(bar3, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.22);
+      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.30);
 
-      tl.to(bar4, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.55);
-      tl.to(bar4, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.60);
-      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.70);
+      tl.to(bar4, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.30);
+      tl.to(bar4, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.32);
+      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.40);
 
-      tl.to(bar5, { scaleY: 0.005, rotateX: 0, duration: 0.05, ease: "none" }, 0.65);
-      tl.to(bar5, { scaleY: 0.5, rotateX: -60, duration: 0.1, ease: "power2.out" }, 0.70);
-      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.1, ease: "power2.inOut" }, 0.80);
+      tl.to(bar5, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.40);
+      tl.to(bar5, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.42);
+      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.50);
 
-      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.1, ease: "power2.out" }, 0.90);
+      // Key Facts content fades in once all bars are fully revealed
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.15, ease: "power2.out" }, 0.55);
 
-      // Hold the finished state for the remaining scroll distance
-      tl.to({}, { duration: 0.2 }, 0.90);
+      // Short hold — user sees Key Facts, then immediately scrolls into ServicesSkills
+      tl.to({}, { duration: 0.2 }, 0.70);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
@@ -97,9 +91,7 @@ export default function WhiteTransition() {
       id="key-facts-section"
       data-theme-section="white"
       className="relative w-full h-screen overflow-hidden bg-transparent z-20"
-      // Pull this section up so it pins exactly when the last lines of the
-      // scroll-reveal text just touch the top of the viewport.
-      style={{ marginTop: "-32vh" }}
+      style={{ marginTop: "-100vh" }}
     >
       <div className="absolute inset-0 pointer-events-none z-10" style={{ perspective: "800px" }}>
         <div

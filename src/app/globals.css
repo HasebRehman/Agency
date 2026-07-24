@@ -6,8 +6,9 @@
   --color-brand-cyan: #35d0ff;
   --color-brand-violet: #8b7bff;
   
-  --font-sans: var(--font-inter), sans-serif;
+  --font-sans: var(--font-plus-jakarta-sans), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-story: var(--font-dancing-script), cursive;
 }
 
 :root {
@@ -24,9 +25,10 @@
   --glow-cyan: rgba(53, 208, 255, 0.35);
   --glow-violet: rgba(139, 123, 255, 0.28);
   
-  --font-display: var(--font-space-grotesk), sans-serif;
-  --font-body: var(--font-inter), sans-serif;
+  --font-display: var(--font-syne), sans-serif;
+  --font-body: var(--font-plus-jakarta-sans), sans-serif;
   --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-story: var(--font-dancing-script), cursive;
 }
 
 body {
