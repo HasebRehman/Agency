@@ -63,17 +63,11 @@ export default function Header() {
       const whiteSections = document.querySelectorAll('[data-theme-section="white"]');
       let isOverWhite = false;
 
-      whiteSections.forEach((sec, idx) => {
+      whiteSections.forEach((sec) => {
         const rect = sec.getBoundingClientRect();
-        // Add a ~14-line (~380px) scroll delay on the first white section before triggering light theme navbar
-        if (idx === 0) {
-          if (rect.top <= 0 && rect.bottom > 80) {
-            isOverWhite = true;
-          }
-        } else {
-          if (rect.top < window.innerHeight * 0.7 && rect.bottom > 80) {
-            isOverWhite = true;
-          }
+        // Check if the header area (top 0px to 80px) overlaps a white background section
+        if (rect.top <= 80 && rect.bottom >= 60) {
+          isOverWhite = true;
         }
       });
 
@@ -90,7 +84,7 @@ export default function Header() {
     };
   }, []);
 
-  const isHeaderVisible = showNav && (scrollY <= 60 || isLightBg);
+  const isHeaderVisible = showNav;
 
   const navLinks = [
     { name: "Work", href: "#work" },
@@ -114,10 +108,10 @@ export default function Header() {
           stiffness: 100,
           damping: 15,
         }}
-        className={`relative flex items-center justify-between rounded-full border backdrop-blur-[16px] transition-all duration-500 ease-in-out ${
+        className={`relative flex items-center justify-between rounded-full border backdrop-blur-[20px] transition-all duration-500 ease-in-out ${
           isLightBg
-            ? "border-black/10 bg-white/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.06)]"
-            : "border-white/10 bg-black/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.35)]"
+            ? "border-black/10 bg-white/75 shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_8px_32px_rgba(0,0,0,0.08)]"
+            : "border-white/15 bg-black/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.5)]"
         } ${
           isExpanded
             ? "w-[96%] md:w-[92%] max-w-[1300px] h-[64px]"
@@ -168,7 +162,7 @@ export default function Header() {
                     href={link.href}
                     className={`transition-colors duration-300 text-[15px] font-sans font-medium no-underline ${
                       isLightBg
-                        ? "text-black hover:text-[#4a5568]"
+                        ? "text-zinc-900 hover:text-black"
                         : "text-[#8b96ac] hover:text-[#eaf1fb]"
                     }`}
                   >
@@ -188,7 +182,7 @@ export default function Header() {
               href="#contact"
               className={`text-[0.88rem] font-medium px-6 py-2.5 rounded-full border transition-all duration-300 whitespace-nowrap ${
                 isLightBg
-                  ? "text-black border-transparent bg-white/90 hover:bg-white"
+                  ? "text-black border-black/15 bg-black/5 hover:bg-black/10"
                   : "text-white border-white/10 bg-white/[0.045] hover:bg-white/[0.07] hover:border-[#35d0ff]/40"
               }`}
             >

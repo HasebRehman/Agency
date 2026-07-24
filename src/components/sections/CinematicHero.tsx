@@ -727,14 +727,7 @@ export default function CinematicHero() {
         "-=0.9"
       );
 
-      // Pin Section 1 (Hero) for 100vh
-      ScrollTrigger.create({
-        trigger: "#hero-section",
-        pin: true,
-        start: "top top",
-        end: "+=100%",
-        pinSpacing: true,
-      });
+
 
       // Track scroll progress and velocity of the scroll container
       ScrollTrigger.create({

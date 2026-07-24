@@ -47,7 +47,7 @@ export default function WhiteTransition() {
           end: "+=120%",
           pin: true,
           pinSpacing: true,
-          scrub: 2,
+          scrub: 1.2,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
@@ -74,11 +74,12 @@ export default function WhiteTransition() {
       tl.to(bar5, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.42);
       tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.50);
 
-      // Key Facts content fades in once all bars are fully revealed
+      // Make container background solid white and reveal Key Facts content
+      tl.to(container, { backgroundColor: "#ffffff", duration: 0.01 }, 0.50);
       tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.15, ease: "power2.out" }, 0.55);
 
-      // Short hold — user sees Key Facts, then immediately scrolls into ServicesSkills
-      tl.to({}, { duration: 0.2 }, 0.70);
+      // Hold state so user can comfortably read Key Facts before scrolling into ServicesSkills
+      tl.to({}, { duration: 0.35 }, 0.70);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
