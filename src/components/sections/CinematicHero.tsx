@@ -727,9 +727,14 @@ export default function CinematicHero() {
         "-=0.9"
       );
 
-
-
-      // Track scroll progress and velocity of the scroll container
+      // Pin Section 1 (Hero) so it stays fixed at top: 0 while white bars animate over it
+      ScrollTrigger.create({
+        trigger: "#hero-section",
+        pin: true,
+        start: "top top",
+        end: "+=170%",
+        pinSpacing: false,
+      });
       ScrollTrigger.create({
         trigger: "#hero-scroll-container",
         start: "top top",

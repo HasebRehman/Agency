@@ -16,6 +16,10 @@ export default function WhiteTransition() {
   const bar5Ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const stat1Ref = useRef<HTMLSpanElement>(null);
+  const stat2Ref = useRef<HTMLSpanElement>(null);
+  const stat3Ref = useRef<HTMLSpanElement>(null);
+
   useGSAP(
     () => {
       const container = containerRef.current;
@@ -44,42 +48,61 @@ export default function WhiteTransition() {
           id: "key-facts-pin",
           trigger: container,
           start: "top top",
-          end: "+=120%",
+          end: "+=170%",
           pin: true,
           pinSpacing: true,
-          scrub: 1.2,
+          scrub: 2.2,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
       });
 
-      // White bars rise immediately when trigger starts — no dead zone
-      tl.to(bar1, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.0);
-      tl.to(bar1, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.02);
-      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.10);
+      // White bars unfold very slowly, gradually, and smoothly
+      tl.to(bar1, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.0);
+      tl.to(bar1, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.05);
+      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.20);
 
-      tl.to(bar2, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.10);
-      tl.to(bar2, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.12);
-      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.20);
+      tl.to(bar2, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.18);
+      tl.to(bar2, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.23);
+      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.38);
 
-      tl.to(bar3, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.20);
-      tl.to(bar3, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.22);
-      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.30);
+      tl.to(bar3, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.36);
+      tl.to(bar3, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.41);
+      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.56);
 
-      tl.to(bar4, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.30);
-      tl.to(bar4, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.32);
-      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.40);
+      tl.to(bar4, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.54);
+      tl.to(bar4, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.59);
+      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.74);
 
-      tl.to(bar5, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.40);
-      tl.to(bar5, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"  }, 0.42);
-      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut"}, 0.50);
+      tl.to(bar5, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.72);
+      tl.to(bar5, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.77);
+      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.92);
 
-      // Make container background solid white and reveal Key Facts content
-      tl.to(container, { backgroundColor: "#ffffff", duration: 0.01 }, 0.50);
-      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.15, ease: "power2.out" }, 0.55);
+      // Make container background solid white and reveal Key Facts content smoothly
+      tl.to(container, { backgroundColor: "#ffffff", duration: 0.01 }, 0.92);
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.18, ease: "power2.out" }, 0.93);
 
-      // Hold state so user can comfortably read Key Facts before scrolling into ServicesSkills
-      tl.to({}, { duration: 0.35 }, 0.70);
+      // Stat Numbers Count-Up Animation
+      const countObj = { num1: 0, num2: 0, num3: 0 };
+      tl.to(
+        countObj,
+        {
+          num1: 99,
+          num2: 120,
+          num3: 10,
+          duration: 0.15,
+          ease: "power2.out",
+          onUpdate: () => {
+            if (stat1Ref.current) stat1Ref.current.innerText = `${Math.floor(countObj.num1)}%`;
+            if (stat2Ref.current) stat2Ref.current.innerText = `${Math.floor(countObj.num2)}+`;
+            if (stat3Ref.current) stat3Ref.current.innerText = `${Math.floor(countObj.num3)}x`;
+          },
+        },
+        0.75
+      );
+
+      // Smooth exit into Services & Skills
+      tl.to({}, { duration: 0.07 }, 0.98);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
@@ -97,6 +120,7 @@ export default function WhiteTransition() {
       <div className="absolute inset-0 pointer-events-none z-10" style={{ perspective: "800px" }}>
         <div
           ref={bar5Ref}
+          id="hero-white-bar-top"
           className="absolute left-0 right-0 top-0 bg-white"
           style={{ height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
@@ -129,29 +153,29 @@ export default function WhiteTransition() {
         style={{ willChange: "opacity, transform" }}
       >
         <div className="max-w-5xl w-full flex flex-col items-center">
-          <h2 className="text-5xl font-bold tracking-tight sm:text-7xl md:text-8xl text-zinc-950 mb-6 font-display">
+          <h2 className="text-5xl font-medium tracking-[-0.02em] sm:text-7xl md:text-8xl text-zinc-950 mb-4 font-display">
             Key facts
           </h2>
-          <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-light max-w-xl mb-0">
+          <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-sans font-normal max-w-xl mb-0">
             A snapshot of our experience and impact.
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full mt-24 max-w-5xl border-t border-zinc-200 pt-16">
             <div className="flex flex-col items-center gap-2">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">99%</span>
-              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Client Satisfaction</span>
+              <span ref={stat1Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0%</span>
+              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Client Satisfaction</span>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">120+</span>
-              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Products Shipped</span>
+              <span ref={stat2Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0+</span>
+              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Products Shipped</span>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">10x</span>
-              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Deployment Speed</span>
+              <span ref={stat3Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0x</span>
+              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Deployment Speed</span>
             </div>
             <div className="flex flex-col items-center gap-2">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-display text-black leading-none">24/7</span>
-              <span className="text-xs sm:text-sm font-mono tracking-widest text-zinc-400 uppercase">Systems Monitoring</span>
+              <span className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">24/7</span>
+              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Systems Monitoring</span>
             </div>
           </div>
         </div>

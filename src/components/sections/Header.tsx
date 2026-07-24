@@ -55,19 +55,45 @@ export default function Header() {
   }, [showNav]);
 
   useEffect(() => {
+    let animId: number;
+
     const updateThemeAndScroll = () => {
       const currentScrollY = window.scrollY;
       setScrollY(currentScrollY);
 
-      // Check all sections with data-theme-section="white"
-      const whiteSections = document.querySelectorAll('[data-theme-section="white"]');
       let isOverWhite = false;
+      const whiteSections = document.querySelectorAll('[data-theme-section="white"]');
 
       whiteSections.forEach((sec) => {
+        const id = sec.id;
         const rect = sec.getBoundingClientRect();
-        // Check if the header area (top 0px to 80px) overlaps a white background section
-        if (rect.top <= 80 && rect.bottom >= 60) {
-          isOverWhite = true;
+
+        if (id === "key-facts-section") {
+          // Check if top 100vw white bar has scaled up over the header area
+          const topBar = document.getElementById("hero-white-bar-top");
+          if (topBar) {
+            const style = window.getComputedStyle(topBar);
+            const transform = style.transform || (style as unknown as Record<string, string>).webkitTransform;
+            if (transform && transform !== "none") {
+              const values = transform.split("(")[1].split(")")[0].split(",");
+              const scaleY = parseFloat(values.length === 6 ? values[3] : values[5]);
+              if (scaleY >= 0.5) {
+                isOverWhite = true;
+              }
+            }
+          }
+          const keyFactsContent = document.getElementById("key-facts-content");
+          if (keyFactsContent) {
+            const opacity = parseFloat(window.getComputedStyle(keyFactsContent).opacity);
+            if (opacity >= 0.05) {
+              isOverWhite = true;
+            }
+          }
+        } else {
+          // Standard white background sections
+          if (rect.top <= 80 && rect.bottom >= 60) {
+            isOverWhite = true;
+          }
         }
       });
 
@@ -78,7 +104,15 @@ export default function Header() {
     window.addEventListener("scroll", updateThemeAndScroll, { passive: true });
     window.addEventListener("resize", updateThemeAndScroll);
 
+    // Animation frame loop ensures zero delay during GSAP scrubbed scroll
+    const loop = () => {
+      updateThemeAndScroll();
+      animId = requestAnimationFrame(loop);
+    };
+    animId = requestAnimationFrame(loop);
+
     return () => {
+      cancelAnimationFrame(animId);
       window.removeEventListener("scroll", updateThemeAndScroll);
       window.removeEventListener("resize", updateThemeAndScroll);
     };
@@ -108,44 +142,44 @@ export default function Header() {
           stiffness: 100,
           damping: 15,
         }}
-        className={`relative flex items-center justify-between rounded-full border backdrop-blur-[20px] transition-all duration-500 ease-in-out ${
-          isLightBg
-            ? "border-black/10 bg-white/75 shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_8px_32px_rgba(0,0,0,0.08)]"
-            : "border-white/15 bg-black/60 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.5)]"
-        } ${
+        className={`relative flex items-center justify-between transition-all duration-300 ease-in-out bg-transparent border-none shadow-none ${
           isExpanded
             ? "w-[96%] md:w-[92%] max-w-[1300px] h-[64px]"
             : "w-[320px] h-[50px]"
         }`}
         role="navigation"
       >
-        {/* Logo container (cross-fading absolute elements to avoid layout shifts) */}
+        {/* Logo container (pixel-perfect unnoticeable cross-fade) */}
         <motion.a
           layout
           href="#"
-          className="absolute left-6 md:left-12 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10 w-[180px] h-[60px]"
+          className="absolute left-6 md:left-12 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10 w-[170px] h-[50px]"
         >
-          <Image
-            src={logoImg}
-            alt="CureLogics Logo"
-            height={60}
-            priority
-            className={`absolute inset-0 h-[60px] w-auto object-contain max-h-none select-none pointer-events-none transition-opacity duration-500 ${
-              isLightBg ? "opacity-0" : "opacity-100"
-            }`}
-          />
-          <Image
-            src={logoImgLight}
-            alt="CureLogics Logo"
-            height={60}
-            priority
-            className={`absolute inset-0 h-[60px] w-auto object-contain max-h-none select-none pointer-events-none transition-opacity duration-500 ${
-              isLightBg ? "opacity-100" : "opacity-0"
-            }`}
-          />
+          <div className="relative w-[170px] h-[50px]">
+            <Image
+              src={logoImg}
+              alt="CureLogics Logo"
+              fill
+              priority
+              sizes="170px"
+              className={`object-contain object-left select-none pointer-events-none transition-opacity duration-700 ease-in-out ${
+                isLightBg ? "opacity-0" : "opacity-100"
+              }`}
+            />
+            <Image
+              src={logoImgLight}
+              alt="CureLogics Logo"
+              fill
+              priority
+              sizes="170px"
+              className={`object-contain object-left select-none pointer-events-none transition-opacity duration-700 ease-in-out ${
+                isLightBg ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          </div>
         </motion.a>
 
-        {/* Desktop nav links container - centered inside the capsule */}
+        {/* Desktop nav links container - centered inside the header */}
         <div className="flex-1 flex justify-center overflow-hidden h-full items-center">
           <AnimatePresence>
             {isExpanded && (
@@ -162,8 +196,8 @@ export default function Header() {
                     href={link.href}
                     className={`transition-colors duration-300 text-[15px] font-sans font-medium no-underline ${
                       isLightBg
-                        ? "text-zinc-900 hover:text-black"
-                        : "text-[#8b96ac] hover:text-[#eaf1fb]"
+                        ? "text-black hover:text-zinc-600"
+                        : "text-white hover:text-cyan-300"
                     }`}
                   >
                     {link.name}
@@ -174,16 +208,15 @@ export default function Header() {
           </AnimatePresence>
         </div>
 
-        {/* Desktop CTA (Book a Call) / Mobile Hamburger toggle (Absolute positioned right) */}
+        {/* Desktop CTA (Book a Call) */}
         <div className="absolute right-6 md:right-12 top-1/2 -translate-y-1/2 flex items-center shrink-0 z-10">
-          {/* Desktop CTA */}
           <motion.div layout className="hidden md:block">
             <a
               href="#contact"
               className={`text-[0.88rem] font-medium px-6 py-2.5 rounded-full border transition-all duration-300 whitespace-nowrap ${
                 isLightBg
-                  ? "text-black border-black/15 bg-black/5 hover:bg-black/10"
-                  : "text-white border-white/10 bg-white/[0.045] hover:bg-white/[0.07] hover:border-[#35d0ff]/40"
+                  ? "text-black border-black/20 bg-black/5 hover:bg-black/10"
+                  : "text-white border-white/20 bg-white/10 hover:bg-white/20 hover:border-cyan-400"
               }`}
             >
               Book a call
