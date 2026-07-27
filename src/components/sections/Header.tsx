@@ -121,10 +121,11 @@ export default function Header() {
   const isHeaderVisible = showNav;
 
   const navLinks = [
-    { name: "Work", href: "#work" },
-    { name: "Services", href: "#services" },
-    { name: "Process", href: "#process" },
-    { name: "About", href: "#about" },
+    { name: "Work", href: "/#work" },
+    { name: "Services", href: "/#services" },
+    { name: "Blog", href: "/blog" },
+    { name: "Careers", href: "/careers" },
+    { name: "About", href: "/#about" },
   ];
 
   return (

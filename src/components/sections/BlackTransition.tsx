@@ -23,11 +23,13 @@ export default function BlackTransition() {
       const bar3 = bar3Ref.current;
       const bar4 = bar4Ref.current;
       const bar5 = bar5Ref.current;
+      const projectsSection = document.getElementById("projects-section");
 
-      if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5) return;
+      if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5 || !projectsSection) return;
 
       ScrollTrigger.getById("bt-pin")?.kill();
 
+      // All bars start invisible
       gsap.set([bar1, bar2, bar3, bar4, bar5], {
         scaleY: 0,
         rotateX: 0,
@@ -38,40 +40,44 @@ export default function BlackTransition() {
       const tl = gsap.timeline({
         scrollTrigger: {
           id: "bt-pin",
-          trigger: container,
-          start: "top top",
-          end: "+=60%",
+          trigger: projectsSection,
+          start: "bottom bottom",
+          end: "+=150%",
           pin: true,
           pinSpacing: true,
-          scrub: 1.2,
+          scrub: 2.0,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
       });
 
-      // Exact same animation pattern as WhiteTransition — each bar flips open separately
-      tl.to(bar1, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.0);
-      tl.to(bar1, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"   }, 0.02);
-      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut" }, 0.10);
+      // EXACT 3-stage bar unfold sequence directly over Projects section
+      // Stage 1: thin line appears   (scaleY: 0.005)
+      // Stage 2: tilt & grow         (scaleY: 0.5, rotateX: -45)
+      // Stage 3: lock flat in place  (scaleY: 1.05, rotateX: 0)
 
-      tl.to(bar2, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.10);
-      tl.to(bar2, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"   }, 0.12);
-      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut" }, 0.20);
+      tl.to(bar1, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.0);
+      tl.to(bar1, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.05);
+      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.20);
 
-      tl.to(bar3, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.20);
-      tl.to(bar3, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"   }, 0.22);
-      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut" }, 0.30);
+      tl.to(bar2, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.18);
+      tl.to(bar2, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.23);
+      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.38);
 
-      tl.to(bar4, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.30);
-      tl.to(bar4, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"   }, 0.32);
-      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut" }, 0.40);
+      tl.to(bar3, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.36);
+      tl.to(bar3, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.41);
+      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.56);
 
-      tl.to(bar5, { scaleY: 0.005, duration: 0.02, ease: "none" }, 0.40);
-      tl.to(bar5, { scaleY: 0.5,   rotateX: -60, duration: 0.08, ease: "power2.out"   }, 0.42);
-      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.08, ease: "power2.inOut" }, 0.50);
+      tl.to(bar4, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.54);
+      tl.to(bar4, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.59);
+      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.74);
 
-      // Hold full black screen so user sees it before next section
-      tl.to({}, { duration: 0.35 }, 0.55);
+      tl.to(bar5, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.72);
+      tl.to(bar5, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.77);
+      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.92);
+
+      // Hold full black screen briefly
+      tl.to({}, { duration: 0.10 }, 0.93);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
     },
@@ -79,13 +85,14 @@ export default function BlackTransition() {
   );
 
   return (
-    <section
+    <div
       ref={containerRef}
       id="bt-section"
-     className="relative w-full h-screen overflow-hidden bg-white z-40 -mt-[13vh]"
+      className="fixed inset-0 w-screen h-screen pointer-events-none z-50 overflow-hidden"
     >
-      <div className="absolute inset-0 z-10" style={{ perspective: "800px" }}>
-        {/* Bar 5 — top strip (rises LAST) */}
+      {/* Perspective container for the 5 black bars */}
+      <div className="absolute inset-0 z-10 pointer-events-none" style={{ perspective: "800px" }}>
+        {/* Bar 5 — top strip (unfolds LAST) */}
         <div
           ref={bar5Ref}
           className="absolute left-0 right-0 top-0 bg-black"
@@ -109,13 +116,13 @@ export default function BlackTransition() {
           className="absolute left-0 right-0 bg-black"
           style={{ top: "60vh", height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
-        {/* Bar 1 — bottom strip (rises FIRST) */}
+        {/* Bar 1 — bottom strip (unfolds FIRST) */}
         <div
           ref={bar1Ref}
           className="absolute left-0 right-0 bottom-0 bg-black"
           style={{ height: "20.5vh", transformOrigin: "center center", willChange: "transform", transformStyle: "preserve-3d" }}
         />
       </div>
-    </section>
+    </div>
   );
 }

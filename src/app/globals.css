@@ -255,3 +255,107 @@ body.show-nav nav {
   animation: marquee-right 22s linear infinite;
 }
 
+/* ══════════════════════════════════════════
+   WORDPRESS RICH TEXT CONTENT (.wp-content)
+   ══════════════════════════════════════════ */
+.wp-content {
+  color: #c3cbda;
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+.wp-content p {
+  margin-bottom: 1.75rem;
+}
+
+.wp-content h1,
+.wp-content h2,
+.wp-content h3,
+.wp-content h4,
+.wp-content h5,
+.wp-content h6 {
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.25;
+}
+
+.wp-content h1 { font-size: 2.25rem; }
+.wp-content h2 { font-size: 1.875rem; }
+.wp-content h3 { font-size: 1.5rem; }
+.wp-content h4 { font-size: 1.25rem; }
+
+.wp-content a {
+  color: #35d0ff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.2s ease;
+}
+
+.wp-content a:hover {
+  color: #8b7bff;
+}
+
+.wp-content ul {
+  list-style-type: disc;
+  padding-left: 1.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.wp-content ol {
+  list-style-type: decimal;
+  padding-left: 1.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.wp-content li {
+  margin-bottom: 0.5rem;
+}
+
+.wp-content blockquote {
+  border-left: 3px solid #35d0ff;
+  padding-left: 1.25rem;
+  font-style: italic;
+  color: #eaf1fb;
+  margin: 2rem 0;
+  background: rgba(255, 255, 255, 0.02);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-radius: 0 12px 12px 0;
+}
+
+.wp-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  margin: 2rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wp-content code {
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.08);
+  color: #35d0ff;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+
+.wp-content pre {
+  background: #0a0f1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.25rem;
+  border-radius: 1rem;
+  overflow-x: auto;
+  margin: 2rem 0;
+}
+
+.wp-content pre code {
+  background: transparent;
+  padding: 0;
+  color: #eaf1fb;
+}
+
+

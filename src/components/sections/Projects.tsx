@@ -135,7 +135,7 @@ export default function Projects() {
     <section
       id="projects-section"
       data-theme-section="white"
-      className="relative z-40 w-full bg-white pb-28 pt-12 px-6 md:px-16 flex flex-col items-center justify-start text-neutral-900 overflow-hidden"
+      className="relative z-40 w-full bg-white pb-12 pt-12 px-6 md:px-16 flex flex-col items-center justify-start text-neutral-900 overflow-hidden"
     >
       <div ref={containerRef} className="max-w-6xl w-full flex flex-col items-center text-center gap-24">
         {visibleProjects.map((project, index) => {
