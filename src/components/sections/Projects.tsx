@@ -14,6 +14,9 @@ export default function Projects() {
   const ctaRef = useRef<HTMLDivElement>(null);
 
   const handleExploreNow = () => {
+    // Save current scroll position so we can restore it when coming back
+    sessionStorage.setItem("curelogics_scroll_y", String(window.scrollY));
+
     const cta = ctaRef.current;
     if (cta) {
       gsap.to(cta, {

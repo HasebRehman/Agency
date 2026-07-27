@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useMemo, Suspense } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, Suspense } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import PremiumLoader from "./PremiumLoader";
+import { useAnimation } from "@/components/providers/AnimationProvider";
 
 // ─── Custom Iridescent Shader for Torus Knot ───
 const KnotShader = {
@@ -654,6 +655,10 @@ function StructuredDotWave({ opacity }: StructuredDotWaveProps) {
   );
 }
 
+// ─── Module-level flag — resets on full page reload, persists across SPA client-side navigations
+// so the loader shows on every fresh page load but not on back-navigation from /projects etc.
+let hasLoadedOnce = false;
+
 export default function CinematicHero() {
   const scrollProgressRef = useRef(0);
   const scrollVelocityRef = useRef(0);
@@ -663,13 +668,12 @@ export default function CinematicHero() {
   const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
 
-  // Already-loaded flag — survives client-side navigation (back from /projects etc.)
-  const alreadyLoaded =
-    typeof window !== "undefined" && sessionStorage.getItem("curelogics_loaded") === "true";
+  const { lenis } = useAnimation();
 
-  // If already loaded on first render, skip the loader & preload entirely
-  useEffect(() => {
-    if (alreadyLoaded) {
+  // If already loaded during this SPA session, skip the loader & preload entirely
+  // useLayoutEffect fires before browser paint — sets state for correct first frame
+  useLayoutEffect(() => {
+    if (hasLoadedOnce) {
       setMounted(true);
       setAssetsReady(true);
       setIsLoaded(true);
@@ -690,13 +694,40 @@ export default function CinematicHero() {
     }, 60);
 
     return () => clearInterval(interval);
-  }, [alreadyLoaded]);
+  }, []);
 
   const handleTransitionComplete = () => {
     setIsLoaded(true);
-    sessionStorage.setItem("curelogics_loaded", "true");
+    hasLoadedOnce = true;
     document.body.classList.add("show-nav");
   };
+
+  // Restore scroll position when coming back from another page (e.g. /projects)
+  // useLayoutEffect fires BEFORE browser paint — scroll is set before user sees anything.
+  // No black page, no hero flash — just the correct position from the very first frame.
+  useLayoutEffect(() => {
+    if (!isLoaded) return;
+
+    const savedScrollY = sessionStorage.getItem("curelogics_scroll_y");
+    if (savedScrollY) {
+      const targetY = parseInt(savedScrollY, 10);
+      sessionStorage.removeItem("curelogics_scroll_y");
+
+      // Set scroll instantly before paint
+      window.scrollTo({ top: targetY, behavior: "instant" });
+      if (lenis) {
+        lenis.scrollTo(targetY, { immediate: true });
+      }
+      ScrollTrigger.refresh();
+
+      // Gentle smooth scroll on next frame for a polished feel
+      requestAnimationFrame(() => {
+        if (lenis) {
+          lenis.scrollTo(targetY, { duration: 0.8 });
+        }
+      });
+    }
+  }, [isLoaded, lenis]);
 
   // GSAP ScrollTrigger
   useEffect(() => {
