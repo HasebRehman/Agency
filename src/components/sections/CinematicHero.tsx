@@ -663,8 +663,20 @@ export default function CinematicHero() {
   const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
 
-  // Trigger loader transition
+  // Already-loaded flag — survives client-side navigation (back from /projects etc.)
+  const alreadyLoaded =
+    typeof window !== "undefined" && sessionStorage.getItem("curelogics_loaded") === "true";
+
+  // If already loaded on first render, skip the loader & preload entirely
   useEffect(() => {
+    if (alreadyLoaded) {
+      setMounted(true);
+      setAssetsReady(true);
+      setIsLoaded(true);
+      document.body.classList.add("show-nav");
+      return;
+    }
+
     setMounted(true);
 
     let progress = 0;
@@ -678,10 +690,11 @@ export default function CinematicHero() {
     }, 60);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [alreadyLoaded]);
 
   const handleTransitionComplete = () => {
     setIsLoaded(true);
+    sessionStorage.setItem("curelogics_loaded", "true");
     document.body.classList.add("show-nav");
   };
 

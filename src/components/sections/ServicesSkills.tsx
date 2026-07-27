@@ -294,6 +294,16 @@ export default function ServicesSkills() {
               </div>
             </div>
           ))}
+
+          {/* Extra final card: centered CTA (hardcoded) */}
+          <div className="w-[50vw] h-full flex-shrink-0 flex flex-col items-center justify-center bg-neutral-50 border-r border-neutral-200 px-16 text-center">
+            <h3 className="font-[var(--font-display)] text-3xl lg:text-4xl text-neutral-900 mb-6">
+              Explore our more services
+            </h3>
+            <button className="px-8 py-3 rounded-full border border-neutral-300 text-sm uppercase tracking-[0.15em] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-colors">
+              View More
+            </button>
+          </div>
         </div>
       </div>
 
@@ -333,6 +343,16 @@ export default function ServicesSkills() {
             </div>
           </div>
         ))}
+
+        {/* Extra CTA card (mobile) */}
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 overflow-hidden min-h-[200px] flex flex-col items-center justify-center text-center px-8 py-10">
+          <h3 className="font-[var(--font-display)] text-2xl text-neutral-900 mb-5">
+            Explore our more services
+          </h3>
+          <button className="px-6 py-2.5 rounded-full border border-neutral-300 text-sm uppercase tracking-[0.15em] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-colors">
+            View More
+          </button>
+        </div>
       </div>
     </section>
   );
