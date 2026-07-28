@@ -57,6 +57,11 @@ export default function ServicesSkills() {
   const imageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const indicatorRef = useRef<HTMLDivElement>(null);
 
+  const stat250Ref = useRef<HTMLSpanElement>(null);
+  const stat900Ref = useRef<HTMLSpanElement>(null);
+  const stat4Ref = useRef<HTMLSpanElement>(null);
+  const statsContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const refresh = () => ScrollTrigger.refresh();
     window.addEventListener("load", refresh);
@@ -183,9 +188,49 @@ export default function ServicesSkills() {
           });
         }
 
+        // ─── STATS COUNT-UP ANIMATION (RE-TRIGGER ON RE-ENTRY) ───
+        // Watches the horizontal tween's progress via GSAP ticker (always active).
+        // - When progress > 0.8: fires a quick 0.6s count-up from 0 → target
+        // - When progress < 0.7: resets numbers to 0 (kills any running tween)
+        // This way, every time the user scrolls away and comes back past 80%,
+        // the count-up plays again.
+        const countObj = { v1: 0, v2: 0, v3: 0 };
+
+        const checkProgress = () => {
+          const p = horizontalTween.progress();
+
+          if (p > 0.8 && countObj.v1 === 0) {
+            // Scrolled forward past 80% — count up from 0 to target values
+            gsap.to(countObj, {
+              v1: 250,
+              v2: 900,
+              v3: 4,
+              duration: 0.6,
+              ease: "power2.out",
+              onUpdate: () => {
+                if (stat250Ref.current) stat250Ref.current.textContent = String(Math.round(countObj.v1));
+                if (stat900Ref.current) stat900Ref.current.textContent = String(Math.round(countObj.v2));
+                if (stat4Ref.current) stat4Ref.current.textContent = String(Math.round(countObj.v3));
+              },
+            });
+          } else if (p < 0.7 && countObj.v1 > 0) {
+            // Scrolled back below 70% — reset numbers to 0 for re-trigger
+            gsap.killTweensOf(countObj);
+            countObj.v1 = 0;
+            countObj.v2 = 0;
+            countObj.v3 = 0;
+            if (stat250Ref.current) stat250Ref.current.textContent = "0";
+            if (stat900Ref.current) stat900Ref.current.textContent = "0";
+            if (stat4Ref.current) stat4Ref.current.textContent = "0";
+          }
+        };
+
+        gsap.ticker.add(checkProgress);
+
         requestAnimationFrame(() => ScrollTrigger.refresh());
 
         return () => {
+          gsap.ticker.remove(checkProgress);
           horizontalTween.scrollTrigger?.kill();
           horizontalTween.kill();
         };
@@ -221,14 +266,58 @@ export default function ServicesSkills() {
         {/* Static background — never moves. Only gets uncovered as the track
             (cards) slides fully past it. */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pointer-events-none z-0">
-          <h2 className="font-[var(--font-display)] text-5xl sm:text-7xl md:text-8xl lg:text-[5.5rem] font-extrabold tracking-tight text-neutral-950 leading-[1.05] max-w-4xl">
-            Projects We Have
+          <h2 className="font-[var(--font-display)] text-5xl sm:text-7xl md:text-8xl lg:text-[5.5rem] font-extrabold tracking-tight leading-[1.05] max-w-4xl">
+            <span className="text-neutral-950">We Build</span>
             <br />
-            Worked On
+            <span className="text-neutral-950">
+              Digital Excellence
+            </span>
           </h2>
+
           <p className="text-neutral-500 text-lg sm:text-xl md:text-2xl font-light max-w-2xl mt-6">
-            Selected work showcasing our engineering, design, and digital innovation.
+            From development to design — everything your product needs, built by one dedicated team.
           </p>
+
+          {/* Key facts with count-up */}
+          <div ref={statsContainerRef} className="mt-10 flex items-center gap-10 sm:gap-16">
+            <div className="text-center">
+              <p className="text-3xl sm:text-4xl font-extrabold text-sky-600">
+                <span ref={stat250Ref}>0</span>+
+              </p>
+              <p className="text-neutral-500 text-sm mt-1">Projects Delivered</p>
+            </div>
+            <div className="w-px h-10 bg-neutral-200" />
+            <div className="text-center">
+              <p className="text-3xl sm:text-4xl font-extrabold text-sky-600">
+                <span ref={stat900Ref}>0</span>+
+              </p>
+              <p className="text-neutral-500 text-sm mt-1">Happy Clients</p>
+            </div>
+            <div className="w-px h-10 bg-neutral-200" />
+            <div className="text-center">
+              <p className="text-3xl sm:text-4xl font-extrabold text-sky-600">
+                <span ref={stat4Ref}>0</span>+
+              </p>
+              <p className="text-neutral-500 text-sm mt-1">Years Experience</p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center gap-6 text-xs text-neutral-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 24/7 Support
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> Agile Process
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Quality Assured
+            </span>
+          </div>
+
+          {/* CTA — functionality to be wired up later */}
+          <button className="mt-10 pointer-events-auto px-8 py-3.5 rounded-full bg-neutral-950 text-white text-sm font-semibold tracking-wide hover:bg-sky-600 transition-colors">
+            Start Your Project
+          </button>
         </div>
 
         <div
@@ -247,7 +336,7 @@ export default function ServicesSkills() {
         >
           {/* Intro slide */}
           <div className="w-[50vw] h-full flex-shrink-0 flex flex-col justify-center px-16 lg:px-24 bg-white border-r border-neutral-200">
-            <h2 className="font-[var(--font-display)] text-[clamp(2rem,4vw,3.5rem)] leading-[1.05] text-neutral-900">
+            <h2 className="font-[var(--font-display)] text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[1.05] text-neutral-900">
               {HEADING.title}
             </h2>
             <p className="mt-6 text-neutral-500 max-w-xs">{HEADING.description}</p>
@@ -310,7 +399,7 @@ export default function ServicesSkills() {
       {/* Mobile: simple stacked cards, no horizontal scroll animation */}
       <div className="flex flex-col gap-6 px-6 py-16 md:hidden overflow-y-auto h-full">
         <div className="rounded-2xl border border-neutral-200 bg-white p-8 flex flex-col justify-center">
-          <h2 className="font-[var(--font-display)] text-3xl leading-[1.05] text-neutral-900">
+          <h2 className="font-[var(--font-display)] text-3xl font-extrabold leading-[1.05] text-neutral-900">
             {HEADING.title}
           </h2>
           <p className="mt-4 text-neutral-500">{HEADING.description}</p>

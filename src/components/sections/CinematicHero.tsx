@@ -667,7 +667,6 @@ export default function CinematicHero() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [assetsReady, setAssetsReady] = useState(false);
   const [preloadProgress, setPreloadProgress] = useState(0);
-
   const { lenis } = useAnimation();
 
   // If already loaded during this SPA session, skip the loader & preload entirely
@@ -703,8 +702,9 @@ export default function CinematicHero() {
   };
 
   // Restore scroll position when coming back from another page (e.g. /projects)
-  // useLayoutEffect fires BEFORE browser paint — scroll is set before user sees anything.
-  // No black page, no hero flash — just the correct position from the very first frame.
+  // useLayoutEffect fires BEFORE browser paint — scroll is set before useGSAP hooks run.
+  // This means Projects' useGSAP will see the correct scroll position and set up
+  // animations properly (alreadyInView check will be accurate).
   useLayoutEffect(() => {
     if (!isLoaded) return;
 
@@ -713,19 +713,24 @@ export default function CinematicHero() {
       const targetY = parseInt(savedScrollY, 10);
       sessionStorage.removeItem("curelogics_scroll_y");
 
-      // Set scroll instantly before paint
-      window.scrollTo({ top: targetY, behavior: "instant" });
+      // 1. Scroll immediately (reliable syntax)
+      window.scrollTo(0, targetY);
+
       if (lenis) {
         lenis.scrollTo(targetY, { immediate: true });
       }
-      ScrollTrigger.refresh();
 
-      // Gentle smooth scroll on next frame for a polished feel
+      // 2. ScrollTrigger refreshes at staggered timings
+      // to handle image load delays and layout shifts.
+      // rAF fires after all useGSAP hooks have set up triggers.
+      // 300ms timeout covers cached & uncached image loads.
       requestAnimationFrame(() => {
-        if (lenis) {
-          lenis.scrollTo(targetY, { duration: 0.8 });
-        }
+        ScrollTrigger.refresh();
       });
+
+      setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 300);
     }
   }, [isLoaded, lenis]);
 

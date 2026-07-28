@@ -16,10 +16,6 @@ export default function WhiteTransition() {
   const bar5Ref = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const stat1Ref = useRef<HTMLSpanElement>(null);
-  const stat2Ref = useRef<HTMLSpanElement>(null);
-  const stat3Ref = useRef<HTMLSpanElement>(null);
-
   useGSAP(
     () => {
       const container = containerRef.current;
@@ -32,7 +28,7 @@ export default function WhiteTransition() {
 
       if (!container || !bar1 || !bar2 || !bar3 || !bar4 || !bar5 || !content) return;
 
-      // Defensive: kill any stale instance with this id before creating a new one.
+      // Defensive: kill any stale instances before creating new ones.
       ScrollTrigger.getById("key-facts-pin")?.kill();
 
       gsap.set([bar1, bar2, bar3, bar4, bar5], {
@@ -48,7 +44,7 @@ export default function WhiteTransition() {
           id: "key-facts-pin",
           trigger: container,
           start: "top top",
-          end: "+=170%",
+          end: "+=190%",
           pin: true,
           pinSpacing: true,
           scrub: 2.2,
@@ -59,52 +55,39 @@ export default function WhiteTransition() {
 
       // White bars unfold very slowly, gradually, and smoothly
       tl.to(bar1, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.0);
-      tl.to(bar1, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.05);
-      tl.to(bar1, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.20);
+      tl.to(bar1, { scaleY: 0.5, rotateX: -45, duration: 0.15, ease: "power3.out" }, 0.05);
+      tl.to(bar1, { scaleY: 1.05, rotateX: 0, duration: 0.15, ease: "power2.inOut" }, 0.2);
 
       tl.to(bar2, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.18);
-      tl.to(bar2, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.23);
-      tl.to(bar2, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.38);
+      tl.to(bar2, { scaleY: 0.5, rotateX: -45, duration: 0.15, ease: "power3.out" }, 0.23);
+      tl.to(bar2, { scaleY: 1.05, rotateX: 0, duration: 0.15, ease: "power2.inOut" }, 0.38);
 
       tl.to(bar3, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.36);
-      tl.to(bar3, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.41);
-      tl.to(bar3, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.56);
+      tl.to(bar3, { scaleY: 0.5, rotateX: -45, duration: 0.15, ease: "power3.out" }, 0.41);
+      tl.to(bar3, { scaleY: 1.05, rotateX: 0, duration: 0.15, ease: "power2.inOut" }, 0.56);
 
       tl.to(bar4, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.54);
-      tl.to(bar4, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.59);
-      tl.to(bar4, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.74);
+      tl.to(bar4, { scaleY: 0.5, rotateX: -45, duration: 0.15, ease: "power3.out" }, 0.59);
+      tl.to(bar4, { scaleY: 1.05, rotateX: 0, duration: 0.15, ease: "power2.inOut" }, 0.74);
 
       tl.to(bar5, { scaleY: 0.005, duration: 0.05, ease: "none" }, 0.72);
-      tl.to(bar5, { scaleY: 0.5,   rotateX: -45, duration: 0.15, ease: "power3.out"  }, 0.77);
-      tl.to(bar5, { scaleY: 1.05,  rotateX: 0,   duration: 0.15, ease: "power2.inOut"}, 0.92);
+      tl.to(bar5, { scaleY: 0.5, rotateX: -45, duration: 0.15, ease: "power3.out" }, 0.77);
+      tl.to(bar5, { scaleY: 1.05, rotateX: 0, duration: 0.15, ease: "power2.inOut" }, 0.92);
 
-      // Make container background solid white and reveal Key Facts content smoothly
+      // Make container background solid white and reveal About content smoothly
       tl.to(container, { backgroundColor: "#ffffff", duration: 0.01 }, 0.92);
-      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.18, ease: "power2.out" }, 0.93);
+      tl.to(content, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.35, ease: "power2.out" }, 0.93);
 
-      // Stat Numbers Count-Up Animation
-      const countObj = { num1: 0, num2: 0, num3: 0 };
-      tl.to(
-        countObj,
-        {
-          num1: 99,
-          num2: 120,
-          num3: 10,
-          duration: 0.15,
-          ease: "power2.out",
-          onUpdate: () => {
-            if (stat1Ref.current) stat1Ref.current.innerText = `${Math.floor(countObj.num1)}%`;
-            if (stat2Ref.current) stat2Ref.current.innerText = `${Math.floor(countObj.num2)}+`;
-            if (stat3Ref.current) stat3Ref.current.innerText = `${Math.floor(countObj.num3)}x`;
-          },
-        },
-        0.75
-      );
-
-      // Smooth exit into Services & Skills
-      tl.to({}, { duration: 0.07 }, 0.98);
+      // Smooth exit into Services & Skills (extra hold so the reveal isn't too abrupt)
+      tl.to({}, { duration: 0.15 }, 1.0);
 
       requestAnimationFrame(() => ScrollTrigger.refresh());
+
+      // Explicit cleanup: kill this section's ScrollTrigger (and its pin-spacer)
+      // before React unmounts / Fast Refresh remounts the component.
+      return () => {
+        ScrollTrigger.getById("key-facts-pin")?.kill();
+      };
     },
     { scope: containerRef, dependencies: [] }
   );
@@ -153,31 +136,19 @@ export default function WhiteTransition() {
         style={{ willChange: "opacity, transform" }}
       >
         <div className="max-w-5xl w-full flex flex-col items-center">
-          <h2 className="text-5xl font-medium tracking-[-0.02em] sm:text-7xl md:text-8xl text-zinc-950 mb-4 font-display">
-            Key facts
-          </h2>
-          <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-sans font-normal max-w-xl mb-0">
-            A snapshot of our experience and impact.
+          <p className="text-sm sm:text-base md:text-lg font-sans font-semibold tracking-[0.15em] uppercase mb-4">
+            <span className="text-zinc-950">About</span> <span className="text-sky-400">Curelogics</span>
           </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full mt-24 max-w-5xl border-t border-zinc-200 pt-16">
-            <div className="flex flex-col items-center gap-2">
-              <span ref={stat1Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0%</span>
-              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Client Satisfaction</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <span ref={stat2Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0+</span>
-              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Products Shipped</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <span ref={stat3Ref} className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">0x</span>
-              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Deployment Speed</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-5xl sm:text-6xl md:text-7xl font-medium font-display tracking-[-0.02em] text-black leading-none">24/7</span>
-              <span className="text-xs sm:text-sm font-sans font-medium tracking-wider text-zinc-500 uppercase">Systems Monitoring</span>
-            </div>
-          </div>
+          <h2 className="text-4xl font-semibold tracking-[-0.02em] sm:text-6xl md:text-7xl text-zinc-950 mb-4 font-display leading-tight">
+            Empowering Healthcare &amp; Businesses
+            <br className="hidden sm:block" /> Through IT Solutions
+          </h2>
+          <p className="text-zinc-500 text-lg sm:text-xl md:text-2xl font-sans font-normal max-w-3xl mb-0">
+            At <span className="text-sky-400 font-semibold">Curelogics</span>, we&apos;re your one-stop destination for all your digital needs. From software
+            development and design to SEO, marketing, and beyond, we provide comprehensive solutions to
+            propel your business forward. With our expertise and dedication, we help you achieve your goals
+            and stand out in today&apos;s competitive market.
+          </p>
         </div>
       </div>
     </section>

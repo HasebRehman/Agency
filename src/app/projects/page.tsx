@@ -105,13 +105,18 @@ export default function ProjectsPage() {
     { scope: containerRef, dependencies: [] }
   );
 
+  const handleBackHome = () => {
+    window.scroll(0, 0);
+    router.replace("/");
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header with back button */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-neutral-200">
         <div className="max-w-6xl mx-auto px-6 md:px-16 py-4 flex items-center justify-between">
           <button
-            onClick={() => router.replace("/")}
+            onClick={handleBackHome}
             className="text-xs uppercase tracking-widest font-semibold text-neutral-900 hover:text-sky-600 transition-colors flex items-center gap-2"
           >
             ← Back to Home
@@ -227,7 +232,7 @@ export default function ProjectsPage() {
         {/* Bottom back navigation */}
         <div className="mt-24">
           <button
-            onClick={() => router.replace("/")}
+            onClick={handleBackHome}
             className="text-xs uppercase tracking-widest font-semibold text-white bg-neutral-900 hover:bg-sky-600 transition-colors rounded-full px-8 py-3"
           >
             ← Back to Home

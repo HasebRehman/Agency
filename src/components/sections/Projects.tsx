@@ -137,6 +137,18 @@ export default function Projects() {
       data-theme-section="white"
       className="relative z-40 w-full bg-white pb-12 pt-12 px-6 md:px-16 flex flex-col items-center justify-start text-neutral-900 overflow-hidden"
     >
+      {/* Section Heading */}
+      <div className="mb-16 text-center max-w-4xl">
+        <h2 className="font-[var(--font-display)] text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] font-extrabold tracking-tight text-neutral-950 leading-[1.05]">
+          Projects We Have
+          <br />
+          Worked On
+        </h2>
+        <p className="text-neutral-500 text-base sm:text-lg md:text-xl font-light max-w-2xl mt-5 mx-auto">
+          Selected work showcasing our engineering, design, and digital innovation.
+        </p>
+      </div>
+
       <div ref={containerRef} className="max-w-6xl w-full flex flex-col items-center text-center gap-24">
         {visibleProjects.map((project, index) => {
           const isEven = index % 2 === 1; // 2nd, 4th... project => image on left
