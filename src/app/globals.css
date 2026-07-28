@@ -255,6 +255,7 @@ body.show-nav nav {
   animation: marquee-right 22s linear infinite;
 }
 
+
 /* ══════════════════════════════════════════
    WORDPRESS RICH TEXT CONTENT (.wp-content)
    ══════════════════════════════════════════ */
@@ -357,5 +358,3 @@ body.show-nav nav {
   padding: 0;
   color: #eaf1fb;
 }
-
-
